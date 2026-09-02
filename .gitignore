@@ -1,0 +1,76 @@
+# ─── 공통 ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+
+# 환경변수 / 비밀값 (절대 커밋 금지, .env.example 만 커밋)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials.json
+serviceAccount*.json
+
+# ─── IDE ────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+.vscode/
+!.vscode/extensions.json
+*.sublime-*
+
+# ─── backend/ : Spring Boot + Gradle ────────────────────
+build/
+.gradle/
+out/
+bin/
+target/
+*.class
+*.jar
+# Gradle 래퍼 jar 는 반드시 커밋 (없으면 팀원이 빌드 못 함)
+!gradle/wrapper/gradle-wrapper.jar
+application-local.yml
+application-local.properties
+
+# ─── frontend/ : Vue.js + Node ──────────────────────────
+node_modules/
+dist/
+dist-ssr/
+.output/
+.nuxt/
+.vite/
+coverage/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── crawler/ : Python ──────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# ─── 크롤링 산출물 / 데이터 ─────────────────────────────
+*.sqlite3
+*.db
+data/raw/
+data/output/
+*.csv.gz
+downloads/
