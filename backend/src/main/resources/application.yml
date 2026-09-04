@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: zipsa-backend
+  profiles:
+    active: local
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:zipsa}
+    username: ${POSTGRES_USER:zipsa}
+    password: ${POSTGRES_PASSWORD:changeme}
+  jpa:
+    hibernate:
+      # 스키마는 Flyway 가 관리한다. Hibernate 가 테이블을 건드리지 못하게 validate 로 고정.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  ai:
+    # OpenAI 스타터는 채팅뿐 아니라 임베딩·이미지·음성·모더레이션까지 전부 자동설정합니다.
+    # 그중 음성(speech)은 키가 비어 있으면 빈 생성 단계에서 바로 죽습니다.
+    #   IllegalArgumentException: OpenAI API key must be set
+    # 우리가 쓰는 건 채팅 하나뿐이므로 나머지는 꺼서, 키가 없어도 서버가 뜨게 합니다.
+    model:
+      chat: openai
+      embedding: none
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
+    openai:
+      # ⚠️ 자리표시자를 두는 이유
+      #    OpenAI 스타터는 빈을 만드는 시점에 키를 검사해서, 비어 있으면
+      #    "OpenAI API key must be set" 으로 애플리케이션 자체가 뜨지 않습니다.
+      #    (Anthropic 스타터는 이 검사가 없어서 문제가 안 됐습니다)
+      #    AI 는 요약 보조일 뿐인데 키가 없다고 정책·매물 조회까지 막히면 안 되므로
+      #    자리표시자를 넣어 기동시키고, 실제 사용 전에 AiAvailability 로 확인합니다.
+      #    ${OPENAI_API_KEY:기본값} 은 통하지 않습니다. .env 에 OPENAI_API_KEY= 가
+      #    "빈 문자열로 존재" 하면 Spring 은 값이 있다고 보고 기본값을 쓰지 않습니다.
+      #    그래서 SpEL 로 빈 값까지 걸러냅니다.
+      api-key: "#{'${OPENAI_API_KEY:}'.isBlank() ? 'not-configured' : '${OPENAI_API_KEY:}'}"
+      # 로컬 목 서버로 돌려 실제 과금 없이 호출 경로를 검증할 때 씁니다.
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o-mini}
+          temperature: 0.2
+
+zipsa:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-expire-minutes: ${JWT_ACCESS_EXPIRE_MINUTES:30}
+    refresh-expire-days: ${JWT_REFRESH_EXPIRE_DAYS:14}
+  cors:
+    allowed-origins: http://localhost:5173
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+server:
+  port: 8080
