@@ -1,0 +1,100 @@
+:root {
+  /* 와이어프레임(Figma) 팔레트.
+     파랑이었던 강조색을 오렌지로 옮겼습니다. 색은 전부 여기서만 정의하고
+     화면에서는 var() 로만 씁니다 — 한 곳을 고치면 13개 화면이 같이 바뀝니다. */
+  --primary: #ee6a1e;        /* 버튼·링크·강조 */
+  --primary-strong: #cf520c; /* hover / pressed */
+  --primary-soft: #fdefe3;   /* 뱃지·선택된 항목 배경 */
+  --cream: #fbeadb;          /* 히어로 배너·CTA 면 */
+  --surface-soft: #faf7f4;   /* 표 머리·연한 구획 */
+
+  --brand: var(--primary);   /* 예전 이름. 남은 참조를 위해 유지 */
+  --text: #1c1f23;
+  --muted: #767676;
+  --border: #e3ded9;
+  --bg-soft: var(--primary-soft);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  color: var(--text);
+}
+
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+}
+.header nav { display: flex; gap: 32px; }
+/* 링크는 기본적으로 밑줄을 빼고, 본문 안에서 강조가 필요한 곳만 개별로 넣습니다.
+   목록·네비게이션에 밑줄이 깔리면 화면이 지저분해집니다. */
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--primary); }
+
+.header a { color: var(--text); }
+.header .brand { font-weight: 700; font-size: 18px; }
+
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+
+.field { display: block; width: 100%; padding: 12px 16px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: 6px; font-size: 15px; }
+
+.btn { width: 100%; padding: 13px; border: 0; border-radius: 6px;
+  background: var(--brand); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn:disabled { background: var(--border); cursor: not-allowed; }
+.btn-ghost { background: #eee; color: var(--muted); }
+
+.choice { display: block; width: 100%; text-align: left; padding: 16px 20px; margin-bottom: 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 15px; cursor: pointer; }
+.choice.selected { border-color: var(--brand); background: var(--bg-soft); font-weight: 600; }
+
+.error { color: #d02f2f; font-size: 14px; margin: 8px 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.progress { height: 4px; background: #eee; border-radius: 2px; margin-bottom: 40px; }
+.progress > div { height: 100%; background: var(--brand); border-radius: 2px; transition: width .2s; }
+
+
+/* ─────────────────────────────────────────────────────────────
+   지도 마커 (카카오 CustomOverlay)
+
+   실거래가·공공임대 두 화면이 같은 마커를 씁니다.
+   CustomOverlay 안의 요소는 컴포넌트의 scoped 스타일이 닿지 않기 때문에
+   여기 전역에 둡니다. 한 화면의 <style> 안에 두면 그 화면을 먼저 열지 않는 한
+   다른 화면에서 스타일이 통째로 빠집니다(아이콘이 거대한 검은 덩어리로 보임).
+   ───────────────────────────────────────────────────────────── */
+.pin {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  cursor: pointer;
+}
+
+/* 집 아이콘 — 거래가 있는 단지 표시. 항상 보입니다. */
+.pin .house {
+  width: 26px; height: 26px;
+  fill: var(--primary);
+  stroke: #fff; stroke-width: 1.2; stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35));
+  transition: transform .12s ease;
+}
+
+/* 가격 말풍선 — 자리가 있을 때만. */
+.pin .bubble {
+  background: #fff; border: 1px solid var(--primary); border-radius: 14px;
+  padding: 3px 9px 4px; margin-bottom: 2px;
+  font-size: 12px; line-height: 1.25; white-space: nowrap; text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+}
+.pin .bubble b { color: var(--primary); display: block; font-weight: 700; }
+.pin .bubble i { color: #6b7079; font-size: 11px; font-style: normal; }
+
+/* 겹치는 자리에서는 말풍선만 감춥니다. 아이콘은 남아서 "여기 매물 있음" 을 계속 보여줍니다. */
+.pin.compact .bubble { display: none; }
+
+.pin:hover { z-index: 20; }
+.pin:hover .house { transform: scale(1.25); fill: var(--primary-strong); }
+.pin:hover .bubble { display: block; background: var(--primary); border-color: var(--primary); }
+.pin:hover .bubble b, .pin:hover .bubble i { color: #fff; }

@@ -31,7 +31,7 @@ target/
 *.class
 *.jar
 # Gradle 래퍼 jar 는 반드시 커밋 (없으면 팀원이 빌드 못 함)
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 application-local.yml
 application-local.properties
 
@@ -66,6 +66,11 @@ ENV/
 .coverage
 htmlcov/
 .ipynb_checkpoints/
+.env
+
+# ─── 문서 PDF 빌드 캐시 (scripts/build_*_pdf.py 가 받아 둡니다) ──
+scripts/.mermaid/
+scripts/.pdf-node/
 
 # ─── 크롤링 산출물 / 데이터 ─────────────────────────────
 *.sqlite3
@@ -74,3 +79,6 @@ data/raw/
 data/output/
 *.csv.gz
 downloads/
+
+# PDF 생성용 node 캐시 (scripts/build_api_spec_pdf.py 가 자동 설치)
+scripts/.pdf-node/
