@@ -1,0 +1,12 @@
+# 버전을 고정합니다. 팀원 간 환경 차이로 인한 "내 컴퓨터에선 되는데"를 막기 위해서입니다.
+psycopg[binary]==3.2.3
+httpx==0.28.1
+beautifulsoup4==4.12.3
+lxml==5.3.0
+python-dotenv==1.0.1
+tenacity==9.0.0
+
+# 개발 도구
+ruff==0.8.4
+black==24.10.0
+pytest==8.3.4
