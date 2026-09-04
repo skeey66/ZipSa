@@ -1,0 +1,98 @@
+# ZipSa 전체 스택.
+#
+#   docker compose up --build      # DB + 백엔드 + 프론트 한 번에
+#   → http://localhost:3000
+#
+# 크롤러는 상주 서비스가 아니라 배치라서 필요할 때만 실행합니다.
+#   docker compose run --rm crawler --target policy
+#
+# ⚠️ 개발 중에는 이것보다 로컬 실행이 빠릅니다(코드 고칠 때마다 재빌드가 필요 없음).
+#    README 의 「로컬 개발」 절 참고.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: zipsa-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-zipsa}
+      POSTGRES_USER: ${POSTGRES_USER:-zipsa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+      TZ: Asia/Seoul
+    ports:
+      # 로컬에 이미 PostgreSQL 이 5432 로 떠 있는 경우가 많아 호스트 쪽은 5433 으로 엽니다.
+      # DBeaver 등으로 붙을 때: localhost:5433
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - zipsa-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zipsa} -d ${POSTGRES_DB:-zipsa}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: zipsa-backend
+    environment:
+      # 컨테이너 안에서는 localhost 가 아니라 서비스 이름으로 DB 에 붙습니다.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-zipsa}
+      POSTGRES_USER: ${POSTGRES_USER:-zipsa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 를 .env 에 설정하세요. openssl rand -base64 48}
+      JWT_ACCESS_EXPIRE_MINUTES: ${JWT_ACCESS_EXPIRE_MINUTES:-30}
+      JWT_REFRESH_EXPIRE_DAYS: ${JWT_REFRESH_EXPIRE_DAYS:-14}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      TZ: Asia/Seoul
+    depends_on:
+      db:
+        # DB 가 실제로 응답할 때까지 기다립니다. 컨테이너가 떴다고 DB 가 준비된 건 아닙니다.
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # VITE_* 는 빌드 시점에 번들로 들어갑니다. environment 로 주면 반영되지 않습니다.
+        # 키를 바꾸면 반드시 재빌드: docker compose up --build frontend
+        VITE_KAKAO_MAP_KEY: ${VITE_KAKAO_MAP_KEY:-}
+    container_name: zipsa-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+
+  # 배치. `up` 으로는 뜨지 않고 run 으로만 실행됩니다.
+  crawler:
+    build:
+      context: ./crawler
+    container_name: zipsa-crawler
+    profiles: ["batch"]
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-zipsa}
+      POSTGRES_USER: ${POSTGRES_USER:-zipsa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      CRAWL_USER_AGENT: ${CRAWL_USER_AGENT:-ZipSaBot/1.0}
+      CRAWL_DELAY_SECONDS: ${CRAWL_DELAY_SECONDS:-1.0}
+      # 외부 API 키. 없으면 해당 수집기만 실패하고 나머지는 계속 돕니다.
+      DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-}
+      YOUTH_CENTER_API_KEY: ${YOUTH_CENTER_API_KEY:-}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      TZ: Asia/Seoul
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  zipsa-db-data:
