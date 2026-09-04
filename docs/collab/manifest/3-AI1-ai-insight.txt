@@ -1,0 +1,9 @@
+backend/src/main/java/com/zipsa/ai/AiAvailability.java
+backend/src/main/java/com/zipsa/ai/AiInsightController.java
+backend/src/main/java/com/zipsa/ai/AiInsightService.java
+backend/src/main/java/com/zipsa/ai/LlmInsight.java
+backend/src/main/java/com/zipsa/ai/RuleBasedInsight.java
+backend/src/main/java/com/zipsa/ai/dto/AiInsightResponse.java
+docs/ai-prompts.md
+frontend/src/api/ai.js
+frontend/src/components/AiInsight.vue

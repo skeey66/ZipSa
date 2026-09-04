@@ -1,0 +1,7 @@
+frontend/src/api/housing.js
+frontend/src/api/transactions.js
+frontend/src/composables/useKakaoMap.js
+frontend/src/constants/housing.js
+frontend/src/views/PropertiesView.vue
+frontend/src/views/PublicHousingView.vue
+frontend/src/views/TransactionsView.vue

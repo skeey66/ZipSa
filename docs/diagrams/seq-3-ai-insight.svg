@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1123" height="794" viewBox="0 0 1123 794" font-family="'Apple SD Gothic Neo','Noto Sans KR',sans-serif">
+<rect width="1123" height="794" fill="#FFFFFF"/>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#4A5568"/></marker>
+<marker id="arrow-open" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0.8 1.2 L8.8 5 L0.8 8.8" fill="none" stroke="#8A97A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="34" y="28" width="3.5" height="31" rx="1.75" fill="#111927"/>
+<text x="47.0" y="34.0" font-size="7.6" fill="#7C899B" font-weight="700">SEQUENCE 4</text>
+<text x="47.0" y="51.0" font-size="16" fill="#111927" font-weight="700">정책 상세 — AI 인사이트 (캐시 · 폴백)</text>
+<text x="47.0" y="69.0" font-size="8.6" fill="#3A4658">AI 는 보조 기능이다. 키가 없거나 OpenAI 가 죽어도 규칙 기반으로 떨어져 본문은 항상 읽힌다.</text>
+<text x="1089.0" y="69.0" font-size="7.3" fill="#A3AEBD" text-anchor="end">ai/AiInsightService.java · ai/LlmInsight.java · ai/RuleBasedInsight.java · ai/AiAvailability.java</text>
+<line x1="34" y1="767" x2="1089" y2="767" stroke="#E7ECF3" stroke-width="1"/>
+<text x="34.0" y="779.0" font-size="7.4" fill="#A3AEBD">ZIP 보금자리 · ZipSa — 시퀀스 다이어그램</text>
+<text x="1089.0" y="779.0" font-size="7.4" fill="#A3AEBD" text-anchor="end">4 / 5</text>
+<g transform="translate(0 167.0)">
+<rect x="329.4" y="170.5" width="759.6" height="309.8" rx="6" fill="#FBFCFE" stroke="#CBD5E3" stroke-width="0.9"/>
+<path d="M329.4 176.5 a6 6 0 0 1 6 -6 h22.5 v14 h-28.5 z" fill="#E6EBF3"/>
+<text x="336.4" y="181.0" font-size="7.5" fill="#48566B" font-weight="700">alt</text>
+<text x="365.0" y="181.0" font-size="7.6" fill="#7C899B" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">캐시 히트 — key = policy:{policyId}:{userId}</text>
+<line x1="329.4" y1="250.8" x2="1089.0" y2="250.8" stroke="#CBD5E3" stroke-width="0.9" stroke-dasharray="5 4"/>
+<text x="338.4" y="261.8" font-size="7.6" fill="#7C899B" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">[else] OPENAI_API_KEY 없음 · ChatModel 빈 없음</text>
+<line x1="329.4" y1="325.7" x2="1089.0" y2="325.7" stroke="#CBD5E3" stroke-width="0.9" stroke-dasharray="5 4"/>
+<text x="338.4" y="336.7" font-size="7.6" fill="#7C899B" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">[else] LLM 호출</text>
+<rect x="50.9" y="-48.0" width="142.0" height="34" rx="7" fill="#E6EEFC" stroke="#3B6FD4" stroke-width="1.05"/>
+<text x="121.9" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">PolicyDetailView</text>
+<text x="121.9" y="-22.0" font-size="7.3" fill="#3B6FD4" text-anchor="middle">AiInsight.vue</text>
+<line x1="121.9" y1="-9" x2="121.9" y2="553.9" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="226.8" y="-48.0" width="142.0" height="34" rx="7" fill="#E3F2E9" stroke="#2E8B57" stroke-width="1.05"/>
+<text x="297.8" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">AiInsightController</text>
+<text x="297.8" y="-22.0" font-size="7.3" fill="#2E8B57" text-anchor="middle">/api/ai</text>
+<line x1="297.8" y1="-9" x2="297.8" y2="553.9" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="402.6" y="-48.0" width="142.0" height="34" rx="7" fill="#EDEAFB" stroke="#6455CC" stroke-width="1.05"/>
+<text x="473.6" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">AiInsightService</text>
+<text x="473.6" y="-22.0" font-size="7.3" fill="#6455CC" text-anchor="middle">LRU 캐시 500</text>
+<line x1="473.6" y1="-9" x2="473.6" y2="553.9" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="578.4" y="-48.0" width="142.0" height="34" rx="7" fill="#E1F1F3" stroke="#28808A" stroke-width="1.05"/>
+<text x="649.4" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">RuleBasedInsight</text>
+<text x="649.4" y="-22.0" font-size="7.3" fill="#28808A" text-anchor="middle">규칙 기반</text>
+<line x1="649.4" y1="-9" x2="649.4" y2="553.9" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="754.2" y="-48.0" width="142.0" height="34" rx="7" fill="#FBE9EC" stroke="#C2415C" stroke-width="1.05"/>
+<text x="825.2" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">LlmInsight</text>
+<text x="825.2" y="-22.0" font-size="7.3" fill="#C2415C" text-anchor="middle">ChatClient</text>
+<line x1="825.2" y1="-9" x2="825.2" y2="553.9" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="930.1" y="-48.0" width="142.0" height="34" rx="7" fill="#EDF1F7" stroke="#5B6B80" stroke-width="1.05"/>
+<text x="1001.1" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">OpenAI</text>
+<text x="1001.1" y="-22.0" font-size="7.3" fill="#5B6B80" text-anchor="middle">gpt-4o-mini</text>
+<line x1="1001.1" y1="-9" x2="1001.1" y2="553.9" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<line x1="124.9" y1="33.9" x2="290.8" y2="33.9" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="209.8" y="28.4" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">GET /api/ai/policies/{policyId} + Bearer</text>
+<line x1="300.8" y1="67.8" x2="466.6" y2="67.8" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="385.7" y="62.3" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">forPolicy(policy, user)</text>
+<line x1="476.6" y1="101.8" x2="642.4" y2="101.8" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="561.5" y="96.3" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">나이 · 마감일 · 지역을 코드로 먼저 계산</text>
+<line x1="646.4" y1="135.7" x2="480.6" y2="135.7" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="561.5" y="130.2" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">fallback (verdict · reasons · tone)</text>
+<rect x="532.0" y="142.8" width="234.8" height="15" rx="3.5" fill="#FFFAEC" stroke="#EBDCB0" stroke-width="0.9"/>
+<text x="540.5" y="153.3" font-size="7.6" fill="#8A6D22">틀리면 사용자가 손해 보는 판정이라 숫자와 결론은 LLM 에 맡기지 않는다</text>
+<path d="M476.6 226.5 h26 v13 h-22" fill="none" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="508.6" y="234.5" font-size="8.2" fill="#3A4658" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">cache.get(key) 반환 — 회원별로 답이 달라 전역 캐시는 못 쓴다</text>
+<path d="M476.6 301.3 h26 v13 h-22" fill="none" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="508.6" y="309.3" font-size="8.2" fill="#3A4658" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">fallback 그대로 (aiGenerated=false)</text>
+<line x1="476.6" y1="376.2" x2="818.2" y2="376.2" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="649.4" y="370.7" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">forPolicy(policy, user, verdict)</text>
+<line x1="828.2" y1="410.1" x2="994.1" y2="410.1" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="913.2" y="404.6" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">SYSTEM + 확정된 판정을 담은 프롬프트</text>
+<line x1="998.1" y1="444.1" x2="480.6" y2="444.1" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="737.3" y="438.6" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">summary · reasons · nextSteps → cache.put</text>
+<rect x="363.6" y="451.1" width="220.1" height="15" rx="3.5" fill="#FFFAEC" stroke="#EBDCB0" stroke-width="0.9"/>
+<text x="372.1" y="461.6" font-size="7.6" fill="#8A6D22">예외(타임아웃 · 쿼터) 는 log.warn 후 fallback — 화면을 막지 않는다</text>
+<line x1="294.8" y1="519.8" x2="128.9" y2="519.8" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="209.8" y="514.3" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">{ aiGenerated, summary, application }</text>
+<rect x="57.3" y="526.9" width="129.2" height="15" rx="3.5" fill="#FFFAEC" stroke="#EBDCB0" stroke-width="0.9"/>
+<text x="65.8" y="537.4" font-size="7.6" fill="#8A6D22">aiGenerated ? 「AI」 배지 : 「샘플」 배지</text>
+</g></svg>

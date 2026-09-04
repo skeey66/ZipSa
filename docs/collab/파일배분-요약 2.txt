@@ -1,0 +1,136 @@
+======================================================================
+0-main  (50개)
+======================================================================
+  ./  (5개)  .env.example, .gitignore, CONTRIBUTING.md, README.md …
+  backend/  (6개)  .dockerignore, Dockerfile, build.gradle, gradlew …
+  backend/gradle/wrapper/  gradle-wrapper.jar, gradle-wrapper.properties
+  backend/src/main/java/com/zipsa/  ZipsaApplication.java
+  backend/src/main/java/com/zipsa/auth/jwt/  JwtAuthenticationFilter.java, JwtProperties.java, JwtTokenProvider.java
+  backend/src/main/java/com/zipsa/common/  ApiResponse.java, BusinessException.java, ErrorCode.java, GlobalExceptionHandler.java
+  backend/src/main/java/com/zipsa/config/  SecurityConfig.java
+  backend/src/main/resources/  application.yml
+  backend/src/main/resources/db/migration/  V1__init.sql
+  crawler/  .dockerignore, Dockerfile, README.md, requirements.txt
+  crawler/zipsa_crawler/  __init__.py, config.py, db.py, main.py
+  docs/  DB.dbml, architecture.md
+  frontend/  (7개)  .dockerignore, Dockerfile, index.html, nginx.conf …
+  frontend/public/  logo-horizontal.png
+  frontend/src/  App.vue, main.js
+  frontend/src/api/  auth.js, client.js
+  frontend/src/assets/  main.css
+  frontend/src/components/  DetailDrawer.vue
+  frontend/src/router/  index.js
+  frontend/src/stores/  auth.js
+
+======================================================================
+1-BE1-auth-user  (26개)
+======================================================================
+  backend/src/main/java/com/zipsa/auth/  AuthController.java, AuthService.java, RefreshToken.java, RefreshTokenRepository.java
+  backend/src/main/java/com/zipsa/auth/dto/  (7개)  CheckIdResponse.java, LoginRequest.java, ReissueRequest.java, SignupRequest.java …
+  backend/src/main/java/com/zipsa/user/  (12개)  AgeRange.java, Job.java, MaritalStatus.java, Role.java …
+  backend/src/main/resources/db/migration/  V12__user_region.sql, V13__user_region_distribution.sql, V7__user_role_and_status.sql
+
+======================================================================
+2-BE2-policy-news  (26개)
+======================================================================
+  backend/src/main/java/com/zipsa/news/  News.java, NewsController.java, NewsRepository.java, NewsService.java
+  backend/src/main/java/com/zipsa/news/dto/  NewsResponse.java
+  backend/src/main/java/com/zipsa/policy/  (6개)  Policy.java, PolicyCategory.java, PolicyController.java, PolicyRepository.java …
+  backend/src/main/java/com/zipsa/policy/dto/  PolicyResponse.java, RecommendResponse.java
+  backend/src/main/resources/db/migration/  (5개)  V10__policy_matching_columns.sql, V11__news_content.sql, V15__policy_zip_codes.sql, V2__policy_views.sql …
+  crawler/zipsa_crawler/news/  __init__.py, article.py, client.py, repository.py
+  crawler/zipsa_crawler/policy/  __init__.py, client.py, repository.py
+  scripts/  check_keys.py
+
+======================================================================
+3-AI1-ai-insight  (9개)
+======================================================================
+  backend/src/main/java/com/zipsa/ai/  (5개)  AiAvailability.java, AiInsightController.java, AiInsightService.java, LlmInsight.java …
+  backend/src/main/java/com/zipsa/ai/dto/  AiInsightResponse.java
+  docs/  ai-prompts.md
+  frontend/src/api/  ai.js
+  frontend/src/components/  AiInsight.vue
+
+======================================================================
+4-FE1-auth-ui  (8개)
+======================================================================
+  frontend/public/  card-community.png, card-info.png, card-properties.png, hero.mp4
+  frontend/src/views/  HomeView.vue, LoginView.vue, MyPageView.vue, SignupView.vue
+
+======================================================================
+5-FE2-policy-news-ui  (8개)
+======================================================================
+  frontend/src/api/  news.js, policy.js
+  frontend/src/components/  RichContent.vue
+  frontend/src/constants/  policy.js
+  frontend/src/utils/  richText.js
+  frontend/src/views/  NewsView.vue, PolicyDetailView.vue, PolicyListView.vue
+
+======================================================================
+6-BE1-community-loan  (30개)
+======================================================================
+  backend/src/main/java/com/zipsa/community/  (10개)  Comment.java, CommentRepository.java, CommunityController.java, CommunityService.java …
+  backend/src/main/java/com/zipsa/community/dto/  (5개)  CommentRequest.java, CommentResponse.java, PostDetailResponse.java, PostRequest.java …
+  backend/src/main/java/com/zipsa/loan/  (7개)  BankCode.java, LoanActual.java, LoanActualRepository.java, LoanController.java …
+  backend/src/main/java/com/zipsa/loan/dto/  LoanPredictionResponse.java, LoanRecordRequest.java, LoanSampleResponse.java, MyLoanResponse.java
+  backend/src/main/resources/db/migration/  V14__loan_status.sql
+  scripts/  seed_dev_data.py, seed_loan_data.py, verify_seed.sql
+
+======================================================================
+7-BE2-housing-transaction  (41개)
+======================================================================
+  backend/src/main/java/com/zipsa/housing/  (9개)  ComplexRepository.java, ComplexUnitRepository.java, HousingComplex.java, HousingComplexUnit.java …
+  backend/src/main/java/com/zipsa/housing/dto/  ComplexMarkerResponse.java, ComplexUnitResponse.java, NoticeResponse.java
+  backend/src/main/java/com/zipsa/transaction/  (8개)  Apartment.java, DealType.java, RealEstateTransaction.java, Region.java …
+  backend/src/main/java/com/zipsa/transaction/dto/  MapMarkerResponse.java, RegionResponse.java, TransactionResponse.java
+  backend/src/main/resources/db/migration/  (9개)  V16__region_merge_2026.sql, V17__regions_jeonnam_gwangju.sql, V20__normalize_apartments.sql, V21__normalize_housing_complexes.sql …
+  crawler/zipsa_crawler/public_housing/  __init__.py, client.py, repository.py
+  crawler/zipsa_crawler/transaction/  (5개)  __init__.py, client.py, collector.py, geocode.py …
+  scripts/  discover_regions.py
+
+======================================================================
+8-AI1-mock-ai  (4개)
+======================================================================
+  backend/src/main/java/com/zipsa/mock/  MockAiController.java
+  backend/src/main/java/com/zipsa/mock/dto/  MockAiStatusResponse.java
+  docs/  ZipSa-AI-Ready.docx
+  scripts/  build_ai_ready_docx.py
+
+======================================================================
+9-FE1-community-loan-ui  (18개)
+======================================================================
+  frontend/public/badges/  HANA.png, KB.png, NH.png, WOORI.png
+  frontend/public/banks/  HANA.png, KB.png, NH.png, WOORI.png
+  frontend/src/api/  community.js, loan.js
+  frontend/src/components/  BankBadges.vue
+  frontend/src/constants/  bank.js, community.js
+  frontend/src/views/  (5개)  CommunityView.vue, LoanPredictionView.vue, LoanRecordView.vue, PostDetailView.vue …
+
+======================================================================
+10-FE2-property-ui  (7개)
+======================================================================
+  frontend/src/api/  housing.js, transactions.js
+  frontend/src/composables/  useKakaoMap.js
+  frontend/src/constants/  housing.js
+  frontend/src/views/  PropertiesView.vue, PublicHousingView.vue, TransactionsView.vue
+
+======================================================================
+11-refactor-prune  (2개)
+======================================================================
+  backend/src/main/resources/db/migration/  V18__prune_unused_schema.sql, V19__drop_dead_columns.sql
+
+======================================================================
+12-docs-api-spec  (30개)
+======================================================================
+  docs/  ZipSa-시스템아키텍처.pdf, ZipSa-시퀀스다이어그램.pdf
+  docs/api/  API.yml, README.md, ZipSa-API-명세서.pdf
+  docs/collab/  파일배분-요약.txt, 협업-시나리오.md
+  docs/collab/manifest/  (14개)  0-main.txt, 1-BE1-auth-user.txt, 10-FE2-property-ui.txt, 11-refactor-prune.txt …
+  docs/design/  2026-09-03-api-v5-design.md
+  docs/diagrams/  (5개)  seq-0-overview.svg, seq-1-auth.svg, seq-2-token-reissue.svg, seq-3-ai-insight.svg …
+  scripts/  build_api_spec_pdf.py, build_architecture_pdf.py, build_sequence_pdf.py
+
+======================================================================
+13-wip-contract  (2개)
+======================================================================
+  frontend/src/views/  ContractCheckResultView.vue, ContractCheckUploadView.vue

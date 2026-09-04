@@ -1,0 +1,2586 @@
+openapi: 3.0.0
+
+info:
+  title: ZipSa API
+  version: 5.0.0
+  description: |
+    청년 주거정책 통합 플랫폼 **ZipSa** 의 REST API 명세입니다.
+
+    이 문서는 `backend/src/main/java/com/zipsa/**/*Controller.java` 의 **실제 구현을 기준**으로 작성했습니다.
+    (문서용으로 만든 가짜 엔드포인트는 없습니다. 단, `/api/mock/**` 은 AI 연동 전까지 쓰는 **의도된 목업**입니다.)
+
+    ### 공통 응답 봉투
+    모든 응답(성공·실패)은 아래 봉투로 감쌉니다. 성공/실패 중 한쪽만 채우며, `null` 키를 생략하지 않습니다.
+
+    ```jsonc
+    // 성공
+    { "success": true,  "data": { }, "error": null }
+    // 실패
+    { "success": false, "data": null, "error": { "code": "POLICY_NOT_FOUND", "message": "정책을 찾을 수 없습니다." } }
+    ```
+
+    예외: `204 No Content` 응답(로그아웃·회원탈퇴)은 본문이 아예 없습니다.
+
+    ### 인증
+    `Authorization: Bearer {accessToken}` 헤더. Access 30분 / Refresh 14일, 재발급은 `POST /api/auth/reissue`.
+
+    ### 문서 규약
+    - 각 오퍼레이션 설명에 **어떤 조건에서 어떤 errorCode 가 나가는지** 적었습니다.
+    - 오류 응답·페이지네이션·Enum 은 전부 `components` 로 빼서 `$ref` 로 재사용합니다.
+    - `Req/Res JSON 실제 예시`: 회원가입 · 로그인 · 정책 상세 · 대출 예측 4개에 전체 예시를 넣었습니다.
+
+    ### ⚠️ 알려진 구현 차이 (문서 = 목표 계약)
+    1. `GlobalExceptionHandler` 는 `@Valid` 실패(`MethodArgumentNotValidException`)만 400 으로 변환합니다.
+       필수 쿼리파라미터 누락·타입 불일치·JSON 파싱 실패는 현재 **500 INTERNAL_ERROR** 로 나갑니다.
+       이 문서는 그 경우를 **400 INVALID_INPUT** 으로 명세합니다(핸들러 추가 필요).
+    2. `AI_SUMMARY_FAILED(503)` 은 정의돼 있으나 `/api/ai/**` 는 LLM 실패 시 예외를 던지지 않고
+       규칙기반 응답(`aiGenerated:false`)으로 **폴백**합니다. 현재 503 은 나가지 않습니다.
+    3. `SecurityConfig` 의 `/api/policies/bookmarks` 는 대응 컨트롤러가 없습니다(설정만 남은 경로).
+  contact:
+    name: ZipSa Team
+
+servers:
+  - url: http://localhost:8080
+    description: 로컬
+  - url: https://dev-api.zipsa.example.com
+    description: 개발
+  - url: https://api.zipsa.example.com
+    description: 운영
+
+tags:
+  - name: Auth
+    description: 인증 (오퍼레이션 1~5)
+  - name: User
+    description: 회원 (오퍼레이션 6~8)
+  - name: Policy
+    description: 정책 (화면 01 메인 · 06 리스트 · 07 상세)
+  - name: PublicHousing
+    description: 공공임대 (화면 09 · 10)
+  - name: Transaction
+    description: 실거래가 (화면 11)
+  - name: News
+    description: 뉴스
+  - name: Community
+    description: 커뮤니티 (화면 08)
+  - name: Loan
+    description: 대출 예측 (화면 14)
+  - name: AI
+    description: AI 요약 · 내 상황 적용
+  - name: Mock
+    description: "AI 연동 전 자리 — 항상 같은 정적 응답을 반환합니다"
+  - name: System
+    description: 헬스체크
+
+security: []
+
+paths:
+
+  # ────────────────────────────────────────────────────────────
+  # Auth — 오퍼레이션 1~5
+  # ────────────────────────────────────────────────────────────
+  /api/auth/signup:
+    post:
+      tags: [Auth]
+      operationId: signUp
+      summary: 회원가입 (오퍼레이션 1)
+      description: |
+        온보딩 6단계(와이어프레임 03·04)에서 모은 값을 한 번에 받습니다. 인증 불필요.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 형식 위반(아이디 4~50자 영문·숫자·`_`, 비밀번호 8~72자 영문+숫자+특수문자, 닉네임 2~30자), 필수 동의 미체크, 비밀번호 72바이트 초과 |
+        | 409 | `USER_ID_DUPLICATED` / `NICKNAME_DUPLICATED` | 아이디·닉네임 중복 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignupRequest' }
+            examples:
+              default:
+                summary: 25세 직장인, 서울 거주
+                value:
+                  loginId: zipsa_user01
+                  password: "Zipsa!2026"
+                  nickname: 집구하는청년
+                  ageRange: AGE_20S_LATE
+                  maritalStatus: SINGLE
+                  job: EMPLOYEE
+                  salaryRange: RANGE_3000_4000
+                  region: 서울특별시 관악구
+                  agreePrivacy: true
+                  agreeCommunity: true
+                  agreeMarketing: false
+      responses:
+        '201':
+          description: 가입 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignupResponseEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      userId: 1024
+                      loginId: zipsa_user01
+                      nickname: 집구하는청년
+                      createdAt: "2026-09-03T21:14:07"
+                    error: null
+        '400':
+          description: 유효성 검증 실패
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                validation:
+                  value:
+                    success: false
+                    data: null
+                    error:
+                      code: INVALID_INPUT
+                      message: "password: 비밀번호는 영문·숫자·특수문자를 모두 포함해야 합니다., agreePrivacy: 개인정보 수집 및 이용에 동의해야 가입할 수 있습니다."
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/auth/check-id:
+    get:
+      tags: [Auth]
+      operationId: checkLoginId
+      summary: 아이디 중복확인 (오퍼레이션 2)
+      description: |
+        인증 불필요. `available=false` 여도 **200** 입니다(중복은 오류가 아니라 판정 결과).
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `loginId` 누락 또는 공백 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: loginId
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, example: zipsa_user01 }
+      responses:
+        '200':
+          description: 판정 결과
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckIdResponseEnvelope' }
+              examples:
+                available:
+                  summary: 사용 가능
+                  value: { success: true, data: { available: true, message: 사용 가능한 아이디입니다. }, error: null }
+                taken:
+                  summary: 이미 사용 중
+                  value: { success: true, data: { available: false, message: 이미 사용 중인 아이디입니다. }, error: null }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: 로그인 (오퍼레이션 3)
+      description: |
+        인증 불필요. 아이디가 없든 비밀번호가 틀리든 **같은** `INVALID_CREDENTIALS` 를 돌려줍니다(계정 존재 여부 노출 방지).
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 아이디·비밀번호 미입력 |
+        | 401 | `INVALID_CREDENTIALS` | 아이디 없음 · 비밀번호 불일치 · 탈퇴(DELETED) 계정 |
+        | 403 | `ACCOUNT_SUSPENDED` | 관리자가 정지시킨 계정 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            examples:
+              default:
+                value: { loginId: zipsa_user01, password: "Zipsa!2026" }
+      responses:
+        '200':
+          description: 토큰 발급
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponseEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMDI0IiwiaWF0IjoxNzcyNzc2MDQ3fQ.9tS0Qm1F0pWq2n6mS6c8k1u2mJ0Nn1oQ0y2y1a3b4c5
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMDI0IiwiaWF0IjoxNzcyNzc2MDQ3fQ.a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v
+                      accessTokenExpiresIn: 1800
+                      nickname: 집구하는청년
+                      role: USER
+                    error: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                invalidCredentials:
+                  value:
+                    success: false
+                    data: null
+                    error: { code: INVALID_CREDENTIALS, message: 아이디 또는 비밀번호가 올바르지 않습니다. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/auth/reissue:
+    post:
+      tags: [Auth]
+      operationId: reissue
+      summary: 토큰 재발급 (오퍼레이션 4)
+      description: |
+        인증 불필요(만료된 Access Token 으로도 호출). 기존 Refresh Token 은 폐기하고 새 쌍을 발급합니다(회전).
+        응답의 `nickname` · `role` 은 재발급에서는 항상 `null` 입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `refreshToken` 누락 |
+        | 401 | `INVALID_TOKEN` | 서명 위조·형식 오류·DB 에 없는(이미 회전된) 토큰 |
+        | 401 | `TOKEN_EXPIRED` | Refresh Token 만료 (재로그인 필요) |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReissueRequest' }
+      responses:
+        '200':
+          description: 재발급 성공
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponseEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      accessToken: eyJhbGciOiJIUzI1NiJ9.new-access-token
+                      refreshToken: eyJhbGciOiJIUzI1NiJ9.new-refresh-token
+                      accessTokenExpiresIn: 1800
+                      nickname: null
+                      role: null
+                    error: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: 로그아웃 (오퍼레이션 5)
+      description: |
+        회원의 Refresh Token 을 전부 삭제합니다. **본문 없는 204** 를 반환합니다(공통 봉투 아님).
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 401 | `INVALID_TOKEN` | 토큰 없음·위조 |
+        | 401 | `TOKEN_EXPIRED` | Access Token 만료 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: 로그아웃 완료 (본문 없음) }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # User — 오퍼레이션 6~8
+  # ────────────────────────────────────────────────────────────
+  /api/users/me:
+    get:
+      tags: [User]
+      operationId: getMyProfile
+      summary: 내 정보 조회 (오퍼레이션 6)
+      description: |
+        마이페이지 「내 정보」 + 「최근 활동」.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 없음·위조·만료 |
+        | 404 | `USER_NOT_FOUND` | 토큰의 회원이 삭제됨 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 내 프로필
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfileResponseEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+    patch:
+      tags: [User]
+      operationId: updateMyProfile
+      summary: 내 정보 수정 (오퍼레이션 7)
+      description: |
+        **전달한 필드만** 변경합니다. `null` 은 "변경하지 않음" 이라 필드를 지울 수는 없습니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 닉네임 2~30자 위반, 지역 30자 초과, 잘못된 Enum 값 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `USER_NOT_FOUND` | 회원 없음 |
+        | 409 | `NICKNAME_DUPLICATED` | 다른 회원이 쓰는 닉네임 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProfileRequest' }
+            examples:
+              nicknameOnly:
+                summary: 닉네임만 변경
+                value: { nickname: 관악구주민 }
+              moveAndRaise:
+                summary: 이사 + 연봉 구간 변경
+                value: { region: 경기도 성남시 분당구, salaryRange: RANGE_4000_5000 }
+      responses:
+        '200':
+          description: 수정된 프로필
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserProfileResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+    delete:
+      tags: [User]
+      operationId: withdraw
+      summary: 회원 탈퇴 (오퍼레이션 8)
+      description: |
+        본인 확인용으로 비밀번호를 **본문으로** 다시 받습니다. 상태를 `DELETED` 로 바꾸고(soft delete)
+        Refresh Token 을 전부 지웁니다. 작성한 글은 남습니다. **본문 없는 204**.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 비밀번호 미입력 |
+        | 401 | `INVALID_CREDENTIALS` | 비밀번호 불일치 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `USER_NOT_FOUND` | 회원 없음 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WithdrawRequest' }
+      responses:
+        '204': { description: 탈퇴 완료 (본문 없음) }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # Policy
+  # ────────────────────────────────────────────────────────────
+  /api/policies:
+    get:
+      tags: [Policy]
+      operationId: searchPolicies
+      summary: 정책 목록 · 검색 · 필터 (POLICY-001)
+      description: |
+        인증 불필요. 목록에서는 응답 크기를 줄이려고 `content` · `applyMethod` 를 `null` 로 내리고,
+        본문 앞 90자를 잘라 `summary` 로 채웁니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `category` 가 Enum 에 없는 값, `page`/`size` 가 숫자가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: keyword
+          in: query
+          required: false
+          description: 제목·본문 부분 일치
+          schema: { type: string, example: 청년 전세 }
+        - name: region
+          in: query
+          required: false
+          description: 거주 지역명 (예 `서울특별시 관악구`)
+          schema: { type: string }
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/PolicyCategory' }
+        - name: openOnly
+          in: query
+          required: false
+          description: true 면 오늘 기준 신청 가능한 정책만
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 정책 페이지
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagePolicyResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/policies/recommend:
+    get:
+      tags: [Policy]
+      operationId: recommendPolicies
+      summary: 나에게 맞는 정책 (POLICY-004)
+      description: |
+        **로그인 필요.** 회원 프로필(나이대·직업·연소득·지역)로 규칙 기반 점수를 매깁니다.
+        LLM 을 쓰지 않으므로 같은 프로필이면 항상 같은 결과가 나오고, `matchReasons` 로 이유를 설명합니다.
+        조건에 맞는 정책이 없으면 **빈 배열**(200)입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `size` 가 숫자가 아님 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `USER_NOT_FOUND` | 회원 없음 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, default: 10, minimum: 1, maximum: 50 }
+      responses:
+        '200':
+          description: 추천 목록 (relevanceRate 내림차순, 동점이면 마감 임박순)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecommendListEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      - policyId: 312
+                        title: 청년 전월세보증금 대출 이자지원
+                        categoryName: 대출·이자
+                        region: 서울특별시 관악구
+                        dDay: 24
+                        relevanceRate: 92
+                        matchReasons: [거주 지역 일치, 연소득 조건 충족, 만 25세 대상]
+                    error: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/policies/{policyId}:
+    get:
+      tags: [Policy]
+      operationId: getPolicy
+      summary: 정책 상세 (POLICY-002)
+      description: |
+        인증 불필요. 상세에서만 `content` · `applyMethod` 를 채웁니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `policyId` 가 숫자가 아님 |
+        | 404 | `POLICY_NOT_FOUND` | 없는 정책 ID |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, example: 312 }
+      responses:
+        '200':
+          description: 정책 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyResponseEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      policyId: 312
+                      title: 청년 전월세보증금 대출 이자지원
+                      summary: 만 19~39세 무주택 청년의 전월세보증금 대출 이자 중 연 2% 이내를 최대 2년간 지원합니다. 신청은 관…
+                      content: |
+                        □ 지원대상
+                        - 공고일 기준 만 19세 ~ 39세 무주택 세대주
+                        - 연소득 4천만원 이하 (부부합산 5천만원 이하)
+                        □ 지원내용
+                        - 대출 이자 중 연 2% 이내, 최대 2년 지원
+                      category: LOAN
+                      categoryName: 대출·이자
+                      region: 서울특별시 관악구
+                      issuer: 관악구청 주택과
+                      targetAgeRange: 만 19~39세
+                      targetJob: 무주택 세대주
+                      targetSalaryRange: 연 4,000만원 이하
+                      applyStartDate: "2026-08-01"
+                      applyEndDate: "2026-09-27"
+                      open: true
+                      dDay: 24
+                      applyMethod: 정부24 온라인 신청 또는 관악구청 주택과 방문
+                      sourceName: 서울특별시 관악구
+                      sourceUrl: https://www.gwanak.go.kr/site/gwanak/ex/bbs/View.do?cbIdx=1
+                    error: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: 정책 없음
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              examples:
+                notFound:
+                  value:
+                    success: false
+                    data: null
+                    error: { code: POLICY_NOT_FOUND, message: 정책을 찾을 수 없습니다. }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # PublicHousing
+  # ────────────────────────────────────────────────────────────
+  /api/public-housings:
+    get:
+      tags: [PublicHousing]
+      operationId: getNotices
+      summary: 모집 공고 목록 (HOUSING-001)
+      description: |
+        인증 불필요. `status` 는 저장값이 아니라 오늘 날짜로 계산합니다(`UPCOMING`/`OPEN`/`CLOSED`).
+        `dDay` 는 마감까지 남은 일수이며 이미 끝났으면 음수가 아니라 `0` 입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `housingType` 이 Enum 에 없는 값, `page`/`size` 가 숫자가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema: { type: string, example: 서울 }
+        - name: housingType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/HousingType' }
+        - name: keyword
+          in: query
+          required: false
+          description: 공고명 부분 일치
+          schema: { type: string }
+        - name: recruitStatus
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/RecruitStatus' }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 공고 페이지
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageNoticeResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/public-housings/calendar:
+    get:
+      tags: [PublicHousing]
+      operationId: getHousingCalendar
+      summary: 캘린더 — 한 달치 공고 (화면 10)
+      description: |
+        인증 불필요. 해당 월과 겹치는 공고를 전부 돌려줍니다(페이징 없음).
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `month` 누락 또는 `yyyy-MM` 형식 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: month
+          in: query
+          required: true
+          description: "`yyyy-MM` 형식"
+          schema: { type: string, pattern: '^\d{4}-\d{2}$', example: "2026-09" }
+      responses:
+        '200':
+          description: 그 달의 공고 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NoticeListEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/public-housings/map:
+    get:
+      tags: [PublicHousing]
+      operationId: getHousingMarkers
+      summary: 공공임대 지도 마커 (단지 집계)
+      description: |
+        인증 불필요. 금액 단위는 **원**(마이홈 API 원본)입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `housingType` 이 Enum 에 없는 값 |
+        | 404 | `REGION_NOT_FOUND` | `regionCode` 가 없거나 5자리가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: regionCode
+          in: query
+          required: true
+          description: 법정동코드 5자리
+          schema: { type: string, minLength: 5, maxLength: 5, example: "11620" }
+        - name: housingType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/HousingType' }
+      responses:
+        '200':
+          description: 단지 마커 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplexMarkerListEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/public-housings/complexes/{complexNo}:
+    get:
+      tags: [PublicHousing]
+      operationId: getComplexUnits
+      summary: 단지 상세 — 평형별 임대조건 (HOUSING-002)
+      description: |
+        인증 불필요. 평형이 하나도 없으면 빈 배열이 아니라 **404** 입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `complexNo` 가 숫자가 아님 |
+        | 404 | `PUBLIC_HOUSING_NOT_FOUND` | 없는 단지이거나 등록된 평형 정보가 없음 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: complexNo
+          in: path
+          required: true
+          schema: { type: integer, format: int64, example: 20240113 }
+      responses:
+        '200':
+          description: 평형 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplexUnitListEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # Transaction — 화면 11
+  # ────────────────────────────────────────────────────────────
+  /api/regions:
+    get:
+      tags: [Transaction]
+      operationId: getRegions
+      summary: 지역 목록 (오퍼레이션 36)
+      description: |
+        인증 불필요. 화면 11 좌측 필터용. `hasData` 는 그 지역에 수집된 실거래가 있는지로,
+        false 인 칩은 눌러도 빈 지도만 나오므로 화면에서 비활성 처리합니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      responses:
+        '200':
+          description: 지역 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegionListEnvelope' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/transactions/map:
+    get:
+      tags: [Transaction]
+      operationId: getTransactionMarkers
+      summary: 실거래 지도 마커 — 아파트 집계 (오퍼레이션 37)
+      description: |
+        인증 불필요. 금액 단위는 **만원**입니다(화면에서 억/만원으로 포맷).
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `dealType` 이 Enum 에 없는 값, `months` 가 숫자가 아님 |
+        | 404 | `REGION_NOT_FOUND` | 존재하지 않는 지역코드 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: regionCode
+          in: query
+          required: true
+          description: 법정동코드 5자리
+          schema: { type: string, example: "11620" }
+        - name: dealType
+          in: query
+          required: false
+          schema: { allOf: [{ $ref: '#/components/schemas/DealType' }], default: SALE }
+        - name: months
+          in: query
+          required: false
+          description: 최근 N개월치 집계
+          schema: { type: integer, default: 12, minimum: 1, maximum: 60 }
+      responses:
+        '200':
+          description: 아파트 단위 마커
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MapMarkerListEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/transactions:
+    get:
+      tags: [Transaction]
+      operationId: getTransactions
+      summary: 실거래 목록 (오퍼레이션 38)
+      description: |
+        인증 불필요. 마커 클릭 시 그 단지(`aptName`)로 좁혀 호출합니다.
+        `dealType=MONTHLY` 일 때만 `monthlyRent` 가 채워집니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `dealType` 이 Enum 에 없는 값, `page`/`size` 가 숫자가 아님 |
+        | 404 | `REGION_NOT_FOUND` | 존재하지 않는 지역코드 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: regionCode
+          in: query
+          required: true
+          schema: { type: string, example: "11620" }
+        - name: dealType
+          in: query
+          required: false
+          schema: { allOf: [{ $ref: '#/components/schemas/DealType' }], default: SALE }
+        - name: aptName
+          in: query
+          required: false
+          description: 단지명 정확 일치 (마커 클릭)
+          schema: { type: string, example: 관악드림타운 }
+        - name: keyword
+          in: query
+          required: false
+          description: 단지명 부분 일치 (검색창)
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 실거래 페이지
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageTransactionResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # News
+  # ────────────────────────────────────────────────────────────
+  /api/news:
+    get:
+      tags: [News]
+      operationId: getNewsList
+      summary: 뉴스 목록 (NEWS-001)
+      description: |
+        인증 불필요. 목록에서는 `content` 가 `null` 입니다(20건만 실어도 수백 KB).
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `page`/`size` 가 숫자가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: keyword
+          in: query
+          required: false
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 뉴스 페이지
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageNewsResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/news/{newsId}:
+    get:
+      tags: [News]
+      operationId: getNews
+      summary: 뉴스 상세 (NEWS-002)
+      description: |
+        인증 불필요. 상세에서만 `content` 를 채웁니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `newsId` 가 숫자가 아님 |
+        | 404 | `NEWS_NOT_FOUND` | 없는 뉴스 ID |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: newsId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, example: 88 }
+      responses:
+        '200':
+          description: 뉴스 상세
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NewsResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # Community — 화면 08. 조회는 비로그인 허용, 쓰기는 로그인 필요
+  # ────────────────────────────────────────────────────────────
+  /api/posts:
+    get:
+      tags: [Community]
+      operationId: getPosts
+      summary: 게시글 목록 (오퍼레이션 21)
+      description: |
+        인증 불필요. `badges` 는 대출 결과를 등록한 회원에게 붙는 은행 코드 배열(`KB`/`WOORI`/`NH`/`HANA`)입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `category` 가 Enum 에 없는 값, `page`/`size` 가 숫자가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/PostCategory' }
+        - name: keyword
+          in: query
+          required: false
+          description: 제목·내용 부분 일치
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 게시글 페이지
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PagePostSummaryResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+    post:
+      tags: [Community]
+      operationId: writePost
+      summary: 게시글 작성 (오퍼레이션 23)
+      description: |
+        **로그인 필요.**
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 제목 공백·200자 초과, 내용 공백, 카테고리 미선택 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `USER_NOT_FOUND` | 작성자 계정 없음 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostRequest' }
+            examples:
+              default:
+                value:
+                  title: 관악구 전세대출 후기 남깁니다
+                  content: 지난주에 승인받았습니다. 조건은 아래와 같습니다...
+                  category: LOAN
+      responses:
+        '201':
+          description: 작성 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PostIdEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/posts/popular:
+    get:
+      tags: [Community]
+      operationId: getPopularPosts
+      summary: 인기글 (화면 01 메인)
+      description: |
+        인증 불필요. 좋아요·조회수 기준 상위 N건.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `size` 가 숫자가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, default: 5, minimum: 1, maximum: 20 }
+      responses:
+        '200':
+          description: 인기글 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PostSummaryListEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/posts/{postId}:
+    get:
+      tags: [Community]
+      operationId: getPost
+      summary: 게시글 상세 (오퍼레이션 22)
+      description: |
+        **인증 선택.** 비로그인도 볼 수 있으며, 그때는 `liked` · `mine` 이 항상 `false` 입니다.
+        조회 시 조회수가 증가합니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `postId` 가 숫자가 아님 |
+        | 404 | `POST_NOT_FOUND` | 없는 글 · 삭제된 글 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{}, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PostIdParam'
+      responses:
+        '200':
+          description: 게시글 상세 + 댓글
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PostDetailResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+    patch:
+      tags: [Community]
+      operationId: editPost
+      summary: 게시글 수정 (오퍼레이션 24)
+      description: |
+        **로그인 필요 + 본인 글만.** 성공 시 `data` 는 `null` 입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 제목·내용·카테고리 검증 실패 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 403 | `NOT_POST_OWNER` | 남의 글 수정 시도 |
+        | 404 | `POST_NOT_FOUND` | 없는 글 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PostIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PostRequest' }
+      responses:
+        '200':
+          description: 수정 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoidEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+    delete:
+      tags: [Community]
+      operationId: deletePost
+      summary: 게시글 삭제 (오퍼레이션 25)
+      description: |
+        **로그인 필요 + 본인 글만.** soft delete(`ContentStatus.DELETED`) 이며 200 + `data:null` 입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `postId` 가 숫자가 아님 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 403 | `NOT_POST_OWNER` | 남의 글 삭제 시도 |
+        | 404 | `POST_NOT_FOUND` | 없는 글 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PostIdParam'
+      responses:
+        '200':
+          description: 삭제 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoidEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/posts/{postId}/likes:
+    post:
+      tags: [Community]
+      operationId: toggleLike
+      summary: 좋아요 토글 (오퍼레이션 26)
+      description: |
+        **로그인 필요.** 같은 요청을 반복하면 좋아요/취소가 번갈아 적용됩니다.
+        응답 `liked` 가 토글 **이후** 상태입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `postId` 가 숫자가 아님 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `POST_NOT_FOUND` / `USER_NOT_FOUND` | 없는 글 · 없는 회원 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PostIdParam'
+      responses:
+        '200':
+          description: 토글 결과
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LikeToggleEnvelope' }
+              examples:
+                liked:
+                  value: { success: true, data: { liked: true }, error: null }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/posts/{postId}/comments:
+    post:
+      tags: [Community]
+      operationId: writeComment
+      summary: 댓글 작성 (오퍼레이션 27)
+      description: |
+        **로그인 필요.**
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 내용 공백 또는 1000자 초과 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `POST_NOT_FOUND` / `USER_NOT_FOUND` | 없는 글 · 없는 회원 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PostIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommentRequest' }
+            examples:
+              default:
+                value: { content: 저도 같은 은행에서 받았는데 금리가 비슷하네요. }
+      responses:
+        '201':
+          description: 작성 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommentIdEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/posts/comments/{commentId}:
+    delete:
+      tags: [Community]
+      operationId: deleteComment
+      summary: 댓글 삭제 (오퍼레이션 28)
+      description: |
+        **로그인 필요 + 본인 댓글만.** 200 + `data:null`.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `commentId` 가 숫자가 아님 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 403 | `NOT_POST_OWNER` | 남의 댓글 삭제 시도 |
+        | 404 | `COMMENT_NOT_FOUND` | 없는 댓글 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, example: 4410 }
+      responses:
+        '200':
+          description: 삭제 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoidEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # Loan — 화면 14. 개인 조건을 쓰므로 전부 로그인 필수
+  # ────────────────────────────────────────────────────────────
+  /api/loans/prediction:
+    get:
+      tags: [Loan]
+      operationId: predictLoan
+      summary: 은행별 한도 분포 + 내 예상 한도 + 분석레포트
+      description: |
+        **로그인 필요.** 회원들이 실제로 등록한 승인 이력(`loan_actuals`)을 5천만원 단위 6구간으로 센 분포입니다.
+        0번 칸은 「반려」이고, 금액 구간은 1번부터 시작합니다.
+
+        `report.aiGenerated` 가 `false` 면 **규칙 기반 목업**입니다. 화면은 이 값으로 「샘플」 배지를 붙여
+        AI 가 쓴 글로 오해되지 않게 합니다. `OPENAI_API_KEY` 가 설정되면 자동으로 `true` 가 됩니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `USER_NOT_FOUND` | 회원 없음 |
+        | 404 | `NOT_FOUND_LOAN_SAMPLE` | 등록된 대출 표본이 하나도 없음 (분포를 만들 수 없음) |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 예측 결과
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoanPredictionResponseEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      profile:
+                        nickname: 집구하는청년
+                        ageRange: 20대 후반
+                        job: 직장인
+                        salaryRange: 3,000~4,000만원
+                        maritalStatus: 미혼
+                      buckets: [반려, 0.5억 미만, 0.5~1억, 1~1.5억, 1.5~2억, 2억 이상]
+                      banks:
+                        - bankName: KB국민은행
+                          theme: amber
+                          distribution: [3, 12, 41, 28, 9, 2]
+                          highlightIndex: 3
+                          expectedLimit: 128000000
+                          expectedRate: 3.62
+                          sampleSize: 95
+                          note: 나이 · 직업 · 연봉 기준 산출
+                        - bankName: 우리은행
+                          theme: blue
+                          distribution: [5, 18, 33, 21, 6, 1]
+                          highlightIndex: 2
+                          expectedLimit: 96000000
+                          expectedRate: 3.85
+                          sampleSize: 84
+                          note: 나이 · 직업 · 연봉 기준 산출
+                      report:
+                        headline: 20대 후반 직장인 · 연소득 3,000~4,000만원 기준 최대 1.28억까지 기대할 수 있습니다
+                        insights:
+                          - KB국민은행이 같은 조건에서 가장 높은 한도를 보였습니다 (표본 95건)
+                          - 금리는 우리은행이 0.23%p 높습니다
+                          - 표본의 8%는 반려됐습니다. 소득 증빙을 먼저 확인하세요
+                        recommendedBank: KB국민은행
+                        disclaimer: 회원들이 등록한 실제 승인 이력을 바탕으로 한 추정치입니다. 실제 심사 결과와 다를 수 있습니다.
+                        aiGenerated: false
+                    error: null
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/loans/prediction/samples:
+    get:
+      tags: [Loan]
+      operationId: getLoanSamples
+      summary: 막대 클릭 — 이 구간을 받은 사람들의 조건
+      description: |
+        **로그인 필요.** 개인을 특정할 수 있는 값(닉네임·아이디)은 담지 않습니다.
+        `bucket=0` 은 반려 구간이라 `rejectedBucket=true` 로 내려가고 화면 문구가 달라집니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `bucket` 이 0~5 밖 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `USER_NOT_FOUND` | 회원 없음 |
+        | 404 | `NOT_FOUND_LOAN_SAMPLE` | 그 은행·구간에 표본이 없음 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: bank
+          in: query
+          required: true
+          description: "은행 **표시명**(한글). `BankCode` 가 아니라 `KB국민은행` 처럼 보냅니다."
+          schema: { type: string, enum: [KB국민은행, 우리은행, NH농협은행, 하나은행], example: KB국민은행 }
+        - name: bucket
+          in: query
+          required: true
+          description: "구간 번호 0~5 (0=반려, 1=0.5억 미만, 2=0.5~1억, 3=1~1.5억, 4=1.5~2억, 5=2억 이상)"
+          schema: { type: integer, minimum: 0, maximum: 5, example: 3 }
+      responses:
+        '200':
+          description: 표본 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoanSampleResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/loans/actual:
+    post:
+      tags: [Loan]
+      operationId: recordLoan
+      summary: 내 대출 결과 등록 (LOAN-005)
+      description: |
+        **로그인 필요.** 이 데이터가 다른 회원의 예측 표본이 되고, 커뮤니티 은행 뱃지의 근거가 됩니다.
+
+        `rejected=true`(반려) 면 `actualLimit` 없이 보냅니다. 승인인데 금액이 없으면 400 입니다.
+        `policyId` 를 생략하면 가장 최근의 대표 대출 정책이 자동으로 연결됩니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | 은행 미선택 · `BankCode` 에 없는 은행 · 한도 1천만~10억 벗어남 · 금리 0.1~20% 벗어남 · 승인인데 `actualLimit` 없음 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `POLICY_NOT_FOUND` | 지정한 정책이 없음 · 연결할 대표 대출 정책이 DB 에 없음 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoanRecordRequest' }
+            examples:
+              approved:
+                summary: 승인
+                value: { bankName: KB, actualLimit: 130000000, actualRate: 3.6, rejected: false }
+              rejected:
+                summary: 반려
+                value: { bankName: HANA, rejected: true }
+      responses:
+        '201':
+          description: 등록 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoanIdEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/loans/me:
+    get:
+      tags: [Loan]
+      operationId: getMyLoans
+      summary: 내가 등록한 대출 (LOAN-002)
+      description: |
+        **로그인 필요.** 등록한 기록이 없으면 `loans: []` 입니다(404 아님).
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 내 대출 목록
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyLoanResponseEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/loans/actual/{loanId}:
+    delete:
+      tags: [Loan]
+      operationId: deleteLoanRecord
+      summary: 등록한 대출 기록 삭제
+      description: |
+        **로그인 필요 + 본인 기록만.** 200 + `data:null`.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `loanId` 가 숫자가 아님 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 403 | `ACCESS_DENIED` | 남의 기록 삭제 시도 |
+        | 404 | `NOT_FOUND_LOAN_SAMPLE` | 없는 기록 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, example: 771 }
+      responses:
+        '200':
+          description: 삭제 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoidEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # AI — 정책·뉴스 상세의 「AI 요약」 + 「나에게 어떻게 적용되나」
+  # ────────────────────────────────────────────────────────────
+  /api/ai/policies/{policyId}:
+    get:
+      tags: [AI]
+      operationId: getPolicyInsight
+      summary: 정책 AI 요약 + 내 적용 (POLICY-005)
+      description: |
+        **로그인 필요** — 「나에게 어떻게 적용되나」가 회원 조건(나이·직업·소득·지역)을 쓰기 때문입니다.
+        비로그인에게는 화면에서 이 영역을 **감춥니다**(401 을 띄우지 않습니다).
+
+        `aiGenerated` 로 출처를 구분합니다.
+        `true` = LLM 생성(배지 「AI」) / `false` = 규칙 기반 목업(배지 「샘플」).
+        `OPENAI_API_KEY` 가 없거나 LLM 호출이 실패하면 **예외 대신 규칙 기반으로 폴백**하므로,
+        정의돼 있는 `AI_SUMMARY_FAILED(503)` 은 현재 실제로는 나가지 않습니다.
+        결과는 (종류·글·회원) 조합으로 서버 메모리에 최대 500건 캐시됩니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `policyId` 가 숫자가 아님 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `POLICY_NOT_FOUND` | 없는 정책 |
+        | 404 | `USER_NOT_FOUND` | 토큰의 회원이 삭제됨 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+        | 503 | `AI_SUMMARY_FAILED` | (예약) LLM 실패를 폴백하지 않기로 바꿀 경우 |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, example: 312 }
+      responses:
+        '200':
+          description: 요약 + 적용
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiInsightResponseEnvelope' }
+              examples:
+                ruleBased:
+                  summary: 규칙 기반 폴백 (키 미설정)
+                  value:
+                    success: true
+                    data:
+                      summary:
+                        - 만 19~39세 무주택 세대주가 대상입니다.
+                        - 전월세보증금 대출 이자 중 연 2% 이내를 최대 2년간 지원합니다.
+                        - 신청은 2026년 9월 27일까지입니다.
+                      application:
+                        verdict: 신청 조건에 해당합니다. 마감 전에 서류를 준비하세요.
+                        reasons: [나이대(20대 후반)가 대상 범위에 듭니다, 연소득 3,000~4,000만원이 4천만원 이하 조건을 만족합니다, 거주지가 관악구로 일치합니다]
+                        nextSteps: [무주택 확인을 위한 주민등록등본 발급, 임대차계약서 사본 준비, 정부24에서 온라인 신청]
+                        tone: good
+                      aiGenerated: false
+                    error: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/ai/news/{newsId}:
+    get:
+      tags: [AI]
+      operationId: getNewsInsight
+      summary: 뉴스 AI 요약 + 내 적용
+      description: |
+        **로그인 필요.** 동작·폴백 규칙은 `/api/ai/policies/{policyId}` 와 같습니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `newsId` 가 숫자가 아님 |
+        | 401 | `INVALID_TOKEN` / `TOKEN_EXPIRED` | 토큰 문제 |
+        | 404 | `NEWS_NOT_FOUND` | 없는 뉴스 |
+        | 404 | `USER_NOT_FOUND` | 토큰의 회원이 삭제됨 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+        | 503 | `AI_SUMMARY_FAILED` | (예약) |
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: newsId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, example: 88 }
+      responses:
+        '200':
+          description: 요약 + 적용
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiInsightResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  # ────────────────────────────────────────────────────────────
+  # Mock — AI 연동 대비 자리. 항상 같은 정적 응답
+  # ────────────────────────────────────────────────────────────
+  /api/mock/ai/status:
+    get:
+      tags: [Mock]
+      operationId: mockAiStatus
+      summary: "[MOCK] AI 사용 가능 여부"
+      description: |
+        **인증 불필요 · 정적 응답.** 프론트가 「AI」/「샘플」 배지를 어느 쪽으로 그릴지 미리 정하려고 씁니다.
+        목업이므로 `aiConfigured` 는 항상 `false` 이고, 실제 값은 나중에 `AiAvailability` 에 연결합니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      responses:
+        '200':
+          description: 목업 상태
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiStatusEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data: { aiConfigured: false, engine: rule-based, model: null, mock: true }
+                    error: null
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/mock/ai/policies/{policyId}:
+    get:
+      tags: [Mock]
+      operationId: mockPolicyInsight
+      summary: "[MOCK] 정책 AI 요약 — 정적 응답"
+      description: |
+        **인증 불필요 · DB 조회 없음 · 항상 200.** `/api/ai/policies/{policyId}` 와 **응답 스키마가 동일**하므로,
+        프론트는 base 경로만 `/api/ai` ↔ `/api/mock/ai` 로 바꿔 끼우면 됩니다.
+
+        AI/백엔드 작업이 끝나기 전에 화면을 먼저 만들기 위한 자리이며, 존재하지 않는 `policyId` 를 넣어도
+        404 가 아니라 같은 목업을 돌려줍니다. `aiGenerated` 는 항상 `false` 입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `policyId` 가 숫자가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          description: 목업은 값을 사용하지 않습니다(응답 형태만 맞춥니다)
+          schema: { type: integer, format: int64, example: 1 }
+      responses:
+        '200':
+          description: 고정된 목업 요약
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiInsightResponseEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      summary:
+                        - "[목업] 만 19~39세 무주택 청년의 전월세 보증금 대출 이자를 지원하는 제도입니다."
+                        - "[목업] 지원 한도는 연 2% 이내, 최대 2년입니다."
+                        - "[목업] 신청은 정부24 온라인 또는 관할 구청 방문으로 가능합니다."
+                      application:
+                        verdict: "[목업] 조건에 해당할 가능성이 높습니다."
+                        reasons: ["[목업] 나이대 조건 충족", "[목업] 소득 구간 조건 충족"]
+                        nextSteps: ["[목업] 주민등록등본 발급", "[목업] 임대차계약서 준비"]
+                        tone: good
+                      aiGenerated: false
+                    error: null
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/mock/ai/news/{newsId}:
+    get:
+      tags: [Mock]
+      operationId: mockNewsInsight
+      summary: "[MOCK] 뉴스 AI 요약 — 정적 응답"
+      description: |
+        **인증 불필요 · DB 조회 없음 · 항상 200.** `/api/ai/news/{newsId}` 와 응답 스키마가 동일합니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 400 | `INVALID_INPUT` | `newsId` 가 숫자가 아님 |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      parameters:
+        - name: newsId
+          in: path
+          required: true
+          description: 목업은 값을 사용하지 않습니다
+          schema: { type: integer, format: int64, example: 1 }
+      responses:
+        '200':
+          description: 고정된 목업 요약
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiInsightResponseEnvelope' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/mock/ai/loans/report:
+    get:
+      tags: [Mock]
+      operationId: mockLoanReport
+      summary: "[MOCK] 대출 분석레포트 — 정적 응답"
+      description: |
+        **인증 불필요 · 정적 응답.** `/api/loans/prediction` 응답의 `report` 조각만 따로 돌려줍니다.
+        화면 14 하단 「분석레포트」를 로그인·표본 없이 개발하기 위한 자리입니다.
+
+        | 상태 | code | 발생 조건 |
+        | --- | --- | --- |
+        | 500 | `INTERNAL_ERROR` | 예기치 못한 예외 |
+      responses:
+        '200':
+          description: 고정된 목업 레포트
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisReportEnvelope' }
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      headline: "[목업] 20대 후반 직장인 기준 최대 1.3억까지 기대할 수 있습니다"
+                      insights:
+                        - "[목업] KB국민은행이 같은 조건에서 가장 높은 한도를 보였습니다"
+                        - "[목업] 금리는 우리은행이 0.2%p 높습니다"
+                        - "[목업] 표본의 8%는 반려됐습니다"
+                      recommendedBank: KB국민은행
+                      disclaimer: 목업 데이터입니다. 실제 심사 결과와 무관합니다.
+                      aiGenerated: false
+                    error: null
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  # ────────────────────────────────────────────────────────────
+  # System
+  # ────────────────────────────────────────────────────────────
+  /actuator/health:
+    get:
+      tags: [System]
+      operationId: health
+      summary: 헬스체크
+      description: |
+        인증 불필요. Docker/로드밸런서용. **공통 봉투를 쓰지 않습니다**(Spring Actuator 기본 형식).
+
+        | 상태 | 의미 |
+        | --- | --- |
+        | 200 | `{"status":"UP"}` |
+        | 503 | `{"status":"DOWN"}` — DB 연결 실패 등 |
+      responses:
+        '200':
+          description: 정상
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: UP }
+        '503':
+          description: 비정상
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: DOWN }
+
+# ════════════════════════════════════════════════════════════════
+# components — 오류·페이지네이션·Enum 은 전부 여기서 $ref 로 재사용한다
+# ════════════════════════════════════════════════════════════════
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "`Authorization: Bearer {accessToken}` — Access 30분, 만료 시 `POST /api/auth/reissue`"
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: 0부터 시작
+      schema: { type: integer, default: 0, minimum: 0 }
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: 페이지당 항목 수
+      schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+    PostIdParam:
+      name: postId
+      in: path
+      required: true
+      schema: { type: integer, format: int64, example: 1201 }
+
+  # ── 공통 오류 응답. 각 오퍼레이션 설명의 표에서 어떤 code 가 나가는지 지정한다 ──
+  responses:
+    BadRequest:
+      description: |
+        잘못된 요청. `@Valid` 검증 실패 시 `message` 에 `필드명: 사유` 가 쉼표로 이어집니다.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            INVALID_INPUT:
+              value: { success: false, data: null, error: { code: INVALID_INPUT, message: "nickname: 닉네임은 2~30자여야 합니다." } }
+
+    Unauthorized:
+      description: 인증 실패. 프론트는 `TOKEN_EXPIRED` 면 재발급 후 1회 재시도하고, `INVALID_TOKEN` 이면 로그인 화면으로 보냅니다.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            INVALID_TOKEN:
+              value: { success: false, data: null, error: { code: INVALID_TOKEN, message: 유효하지 않은 토큰입니다. } }
+            TOKEN_EXPIRED:
+              value: { success: false, data: null, error: { code: TOKEN_EXPIRED, message: 토큰이 만료되었습니다. } }
+            INVALID_CREDENTIALS:
+              value: { success: false, data: null, error: { code: INVALID_CREDENTIALS, message: 아이디 또는 비밀번호가 올바르지 않습니다. } }
+
+    Forbidden:
+      description: 권한 없음
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            NOT_POST_OWNER:
+              value: { success: false, data: null, error: { code: NOT_POST_OWNER, message: 본인이 작성한 글만 수정하거나 삭제할 수 있습니다. } }
+            ACCESS_DENIED:
+              value: { success: false, data: null, error: { code: ACCESS_DENIED, message: 본인이 등록한 기록만 삭제할 수 있습니다. } }
+            ACCOUNT_SUSPENDED:
+              value: { success: false, data: null, error: { code: ACCOUNT_SUSPENDED, message: 정지된 계정입니다. 관리자에게 문의하세요. } }
+
+    NotFound:
+      description: 리소스 없음
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            USER_NOT_FOUND:
+              value: { success: false, data: null, error: { code: USER_NOT_FOUND, message: 회원을 찾을 수 없습니다. } }
+            POLICY_NOT_FOUND:
+              value: { success: false, data: null, error: { code: POLICY_NOT_FOUND, message: 정책을 찾을 수 없습니다. } }
+            PUBLIC_HOUSING_NOT_FOUND:
+              value: { success: false, data: null, error: { code: PUBLIC_HOUSING_NOT_FOUND, message: 공공임대 공고를 찾을 수 없습니다. } }
+            POST_NOT_FOUND:
+              value: { success: false, data: null, error: { code: POST_NOT_FOUND, message: 게시글을 찾을 수 없습니다. } }
+            COMMENT_NOT_FOUND:
+              value: { success: false, data: null, error: { code: COMMENT_NOT_FOUND, message: 댓글을 찾을 수 없습니다. } }
+            NEWS_NOT_FOUND:
+              value: { success: false, data: null, error: { code: NEWS_NOT_FOUND, message: 뉴스를 찾을 수 없습니다. } }
+            REGION_NOT_FOUND:
+              value: { success: false, data: null, error: { code: REGION_NOT_FOUND, message: "존재하지 않는 지역코드입니다: 99999" } }
+            TRANSACTION_NOT_FOUND:
+              value: { success: false, data: null, error: { code: TRANSACTION_NOT_FOUND, message: 실거래 내역을 찾을 수 없습니다. } }
+            NOT_FOUND_LOAN_SAMPLE:
+              value: { success: false, data: null, error: { code: NOT_FOUND_LOAN_SAMPLE, message: 대출 예측에 쓸 표본이 없습니다. } }
+
+    Conflict:
+      description: 중복 · 충돌
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            USER_ID_DUPLICATED:
+              value: { success: false, data: null, error: { code: USER_ID_DUPLICATED, message: 이미 사용 중인 아이디입니다. } }
+            NICKNAME_DUPLICATED:
+              value: { success: false, data: null, error: { code: NICKNAME_DUPLICATED, message: 이미 사용 중인 닉네임입니다. } }
+
+    ServiceUnavailable:
+      description: 일시적 사용 불가 (LLM 호출 실패)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            AI_SUMMARY_FAILED:
+              value: { success: false, data: null, error: { code: AI_SUMMARY_FAILED, message: AI 요약을 생성하지 못했습니다. } }
+
+    InternalError:
+      description: |
+        서버 내부 오류. 사용자에게는 원인을 노출하지 않고 서버 로그에만 남깁니다.
+        (현재는 쿼리파라미터 누락·타입 불일치·JSON 파싱 실패도 여기로 떨어집니다 — `info.description` 참고)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          examples:
+            INTERNAL_ERROR:
+              value: { success: false, data: null, error: { code: INTERNAL_ERROR, message: 서버 내부 오류가 발생했습니다. } }
+
+  schemas:
+
+    # ── 공통 봉투 ────────────────────────────────────────────
+    ApiError:
+      type: object
+      # OAS 3.0 에는 null 타입이 없다. 성공 응답의 `error: null` 을 표현하려면
+      # 참조되는 스키마 쪽에 nullable 을 둬야 한다(3.0 의 공식 우회 방법).
+      nullable: true
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: "`ErrorCode` enum 이름"
+          example: POLICY_NOT_FOUND
+        message:
+          type: string
+          description: 화면에 그대로 보여줄 수 있는 한국어 메시지
+          example: 정책을 찾을 수 없습니다.
+
+    ApiResponse:
+      type: object
+      description: 모든 응답의 공통 봉투. 성공과 실패 중 한쪽만 채웁니다.
+      required: [success, data, error]
+      properties:
+        success: { type: boolean, example: true }
+        data:
+          description: "성공 시 payload. 실패 시 `null`. 타입은 오퍼레이션마다 다릅니다(객체 · 배열 · Page)."
+        error:
+          allOf: [{ $ref: '#/components/schemas/ApiError' }]
+          description: 실패 시에만 채웁니다. 성공 시 `null`.
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            success: { type: boolean, enum: [false], example: false }
+            data: { description: 실패 응답에서는 항상 null, example: null }
+            error: { $ref: '#/components/schemas/ApiError' }
+
+    VoidEnvelope:
+      description: 성공했지만 돌려줄 데이터가 없는 응답 (수정·삭제)
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            success: { type: boolean, enum: [true], example: true }
+            data: { description: 돌려줄 데이터가 없으므로 항상 null, example: null }
+            error: { description: 성공 응답이므로 항상 null, example: null }
+
+    LocalDateTime:
+      type: string
+      description: |
+        `java.time.LocalDateTime` 을 Jackson 이 직렬화한 값입니다.
+        **타임존 오프셋이 없습니다**(`yyyy-MM-dd'T'HH:mm:ss`) — RFC3339 `date-time` 이 아니므로 `format` 을 붙이지 않습니다.
+      pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$'
+      example: "2026-09-03T21:14:07"
+
+    Page:
+      type: object
+      description: |
+        Spring Data `Page` 의 직렬화 형태입니다.
+        문서 `docs/api/README.md §5` 의 축약형(content/page/size/totalElements/totalPages)과 달리
+        실제 응답에는 `pageable` · `sort` · `first`/`last` 등이 함께 나갑니다. **실제 형태를 기준**으로 씁니다.
+      properties:
+        content: { type: array, items: { type: object } }
+        number: { type: integer, description: 현재 페이지 번호(0부터), example: 0 }
+        size: { type: integer, description: 페이지 크기, example: 20 }
+        numberOfElements: { type: integer, description: 이번 페이지의 항목 수, example: 20 }
+        totalElements: { type: integer, format: int64, description: 조건에 맞는 전체 건수, example: 137 }
+        totalPages: { type: integer, example: 7 }
+        first: { type: boolean, example: true }
+        last: { type: boolean, example: false }
+        empty: { type: boolean, example: false }
+        sort:
+          type: object
+          properties:
+            sorted: { type: boolean }
+            unsorted: { type: boolean }
+            empty: { type: boolean }
+        pageable:
+          type: object
+          description: 페이지 요청 정보 (offset, pageNumber, pageSize, paged 등)
+          additionalProperties: true
+
+    # ── Enum ────────────────────────────────────────────────
+    AgeRange:
+      type: string
+      description: 회원가입 온보딩 1단계
+      enum: [AGE_10S, AGE_20S_EARLY, AGE_20S_LATE, AGE_30S_EARLY, AGE_30S_LATE, AGE_40S_OVER]
+      example: AGE_20S_LATE
+    MaritalStatus:
+      type: string
+      enum: [SINGLE, MARRIED]
+      example: SINGLE
+    Job:
+      type: string
+      enum: [STUDENT, EMPLOYEE, SELF_EMPLOYED, JOB_SEEKER, ETC]
+      example: EMPLOYEE
+    SalaryRange:
+      type: string
+      description: 만원 단위 연소득 구간
+      enum: [UNDER_2000, RANGE_2000_3000, RANGE_3000_4000, RANGE_4000_5000, RANGE_5000_7000, OVER_7000]
+      example: RANGE_3000_4000
+    Role:
+      type: string
+      description: 화면 표시용. 실제 권한 판정은 항상 서버가 토큰으로 합니다.
+      enum: [USER, ADMIN]
+      example: USER
+    UserStatus:
+      type: string
+      enum: [ACTIVE, SUSPENDED, DELETED]
+      example: ACTIVE
+    PolicyCategory:
+      type: string
+      description: "HOUSING=주거지원, LOAN=대출·이자, PUBLIC_HOUSING=공공임대, SUPPLY=주택공급"
+      enum: [HOUSING, LOAN, PUBLIC_HOUSING, SUPPLY]
+      example: LOAN
+    PostCategory:
+      type: string
+      enum: [FREE, LOAN, INFO, QUESTION]
+      example: LOAN
+    HousingType:
+      type: string
+      description: "HAPPY_HOUSE=행복주택, NATIONAL_RENTAL=국민임대, PERMANENT_RENTAL=영구임대, PURCHASE_RENTAL=매입임대, JEONSE_RENTAL=전세임대, INTEGRATED_RENTAL=통합공공임대, PUBLIC_RENTAL=공공임대, LONG_JEONSE=장기전세, PUBLIC_SUPPORT_PRIVATE=공공지원민간임대, OTHER=기타"
+      enum: [HAPPY_HOUSE, NATIONAL_RENTAL, PERMANENT_RENTAL, PURCHASE_RENTAL, JEONSE_RENTAL, INTEGRATED_RENTAL, PUBLIC_RENTAL, LONG_JEONSE, PUBLIC_SUPPORT_PRIVATE, OTHER]
+      example: HAPPY_HOUSE
+    RecruitStatus:
+      type: string
+      description: 저장값이 아니라 오늘 날짜로 계산합니다.
+      enum: [UPCOMING, OPEN, CLOSED]
+      example: OPEN
+    DealType:
+      type: string
+      description: "SALE=매매, JEONSE=전세(월세 0), MONTHLY=월세"
+      enum: [SALE, JEONSE, MONTHLY]
+      example: SALE
+    BankCode:
+      type: string
+      description: "KB=KB국민은행, WOORI=우리은행, NH=NH농협은행, HANA=하나은행. 커뮤니티 뱃지 이미지 파일명(`/badges/{code}.png`)과 1:1"
+      enum: [KB, WOORI, NH, HANA]
+      example: KB
+
+    # ── Auth ────────────────────────────────────────────────
+    SignupRequest:
+      type: object
+      required: [loginId, password, nickname, ageRange, maritalStatus, job, salaryRange, region, agreePrivacy, agreeCommunity]
+      properties:
+        loginId:
+          type: string
+          pattern: '^[A-Za-z0-9_]{4,50}$'
+          description: 영문·숫자·언더스코어 4~50자
+          example: zipsa_user01
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: 영문·숫자·특수문자를 모두 포함. **UTF-8 기준 72바이트** 이하(bcrypt 제한 — 한글은 1자 3바이트)
+          example: "Zipsa!2026"
+        nickname: { type: string, minLength: 2, maxLength: 30, example: 집구하는청년 }
+        ageRange: { $ref: '#/components/schemas/AgeRange' }
+        maritalStatus: { $ref: '#/components/schemas/MaritalStatus' }
+        job: { $ref: '#/components/schemas/Job' }
+        salaryRange: { $ref: '#/components/schemas/SalaryRange' }
+        region:
+          type: string
+          maxLength: 30
+          description: 거주 지역. 지자체 정책이 전체의 95% 라 없으면 맞춤 추천이 성립하지 않습니다.
+          example: 서울특별시 관악구
+        agreePrivacy: { type: boolean, description: 필수 동의 (false 면 400), example: true }
+        agreeCommunity: { type: boolean, description: 필수 동의 (false 면 400), example: true }
+        agreeMarketing: { type: boolean, description: 선택 동의, default: false, example: false }
+
+    SignupResponse:
+      type: object
+      properties:
+        userId: { type: integer, format: int64, example: 1024 }
+        loginId: { type: string, example: zipsa_user01 }
+        nickname: { type: string, example: 집구하는청년 }
+        createdAt: { $ref: '#/components/schemas/LocalDateTime' }
+
+    CheckIdResponse:
+      type: object
+      properties:
+        available: { type: boolean, example: true }
+        message:
+          type: string
+          description: 판정 결과를 사람이 읽는 형태로 옮긴 값(오류 메시지가 아닙니다)
+          example: 사용 가능한 아이디입니다.
+
+    LoginRequest:
+      type: object
+      required: [loginId, password]
+      properties:
+        loginId: { type: string, example: zipsa_user01 }
+        password: { type: string, format: password, example: "Zipsa!2026" }
+
+    ReissueRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, example: eyJhbGciOiJIUzI1NiJ9.refresh-token-value }
+
+    WithdrawRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, format: password, description: 본인 확인용 재입력, example: "Zipsa!2026" }
+
+    TokenResponse:
+      type: object
+      properties:
+        accessToken: { type: string, example: eyJhbGciOiJIUzI1NiJ9.access-token-value }
+        refreshToken: { type: string, example: eyJhbGciOiJIUzI1NiJ9.refresh-token-value }
+        accessTokenExpiresIn: { type: integer, format: int64, description: 만료까지 남은 초, example: 1800 }
+        nickname:
+          type: string
+          nullable: true
+          description: 헤더 표시용. **재발급(오퍼레이션 4) 응답에서는 항상 null**
+          example: 집구하는청년
+        role:
+          type: string
+          nullable: true
+          enum: [USER, ADMIN, null]
+          description: "`Role` 과 같은 값. 재발급(오퍼레이션 4) 응답에서는 항상 null"
+          example: USER
+
+    # ── User ────────────────────────────────────────────────
+    RecentActivity:
+      type: object
+      description: 마이페이지 「최근 활동」 한 줄
+      properties:
+        type: { type: string, description: "활동 종류 (POST/COMMENT/LOAN 등)", example: POST }
+        title: { type: string, example: 관악구 전세대출 후기 남깁니다 }
+        occurredAt: { $ref: '#/components/schemas/LocalDateTime' }
+
+    UserProfileResponse:
+      type: object
+      properties:
+        userId: { type: integer, format: int64, example: 1024 }
+        loginId: { type: string, example: zipsa_user01 }
+        nickname: { type: string, example: 집구하는청년 }
+        ageRange: { $ref: '#/components/schemas/AgeRange' }
+        maritalStatus: { $ref: '#/components/schemas/MaritalStatus' }
+        job: { $ref: '#/components/schemas/Job' }
+        salaryRange: { $ref: '#/components/schemas/SalaryRange' }
+        region: { type: string, nullable: true, example: 서울특별시 관악구 }
+        status: { $ref: '#/components/schemas/UserStatus' }
+        role: { $ref: '#/components/schemas/Role' }
+        createdAt: { $ref: '#/components/schemas/LocalDateTime' }
+        recentActivities:
+          type: array
+          items: { $ref: '#/components/schemas/RecentActivity' }
+
+    UpdateProfileRequest:
+      type: object
+      description: 전달한 필드만 변경합니다. 생략하거나 `null` 이면 "변경하지 않음".
+      properties:
+        nickname: { type: string, minLength: 2, maxLength: 30, nullable: true, example: 관악구주민 }
+        ageRange: { $ref: '#/components/schemas/AgeRange' }
+        maritalStatus: { $ref: '#/components/schemas/MaritalStatus' }
+        job: { $ref: '#/components/schemas/Job' }
+        salaryRange: { $ref: '#/components/schemas/SalaryRange' }
+        region: { type: string, maxLength: 30, nullable: true, example: 경기도 성남시 분당구 }
+
+    # ── Policy ──────────────────────────────────────────────
+    PolicyResponse:
+      type: object
+      description: 목록(POLICY-001)과 상세(POLICY-002) 공용. **목록에서는 `content` · `applyMethod` 가 null** 입니다.
+      properties:
+        policyId: { type: integer, format: int64, example: 312 }
+        title: { type: string, example: 청년 전월세보증금 대출 이자지원 }
+        summary:
+          type: string
+          nullable: true
+          description: 본문 앞 90자를 잘라 만든 요약(공백 정규화 후 `…` 부착)
+        content: { type: string, nullable: true, description: 정책 원문. **상세에서만** 채웁니다 }
+        category: { $ref: '#/components/schemas/PolicyCategory' }
+        categoryName: { type: string, description: 화면 표시용 한글 라벨, example: 대출·이자 }
+        region: { type: string, nullable: true, example: 서울특별시 관악구 }
+        issuer: { type: string, nullable: true, example: 관악구청 주택과 }
+        targetAgeRange: { type: string, nullable: true, example: 만 19~39세 }
+        targetJob: { type: string, nullable: true, example: 무주택 세대주 }
+        targetSalaryRange: { type: string, nullable: true, example: "연 4,000만원 이하" }
+        applyStartDate: { type: string, format: date, nullable: true, example: "2026-08-01" }
+        applyEndDate: { type: string, format: date, nullable: true, example: "2026-09-27" }
+        open: { type: boolean, description: 오늘 기준 신청 가능 여부, example: true }
+        dDay:
+          type: integer
+          format: int64
+          nullable: true
+          description: 마감까지 남은 일수. 마감일이 없으면 `null`, 이미 지났으면 `0`
+          example: 24
+        applyMethod: { type: string, nullable: true, description: 신청 방법. **상세에서만** 채웁니다 }
+        sourceName: { type: string, nullable: true, example: 서울특별시 관악구 }
+        sourceUrl: { type: string, format: uri, nullable: true }
+
+    RecommendResponse:
+      type: object
+      description: POLICY-004. 규칙 기반 점수라 같은 프로필이면 항상 같은 결과입니다.
+      properties:
+        policyId: { type: integer, format: int64, example: 312 }
+        title: { type: string, example: 청년 전월세보증금 대출 이자지원 }
+        categoryName: { type: string, example: 대출·이자 }
+        region: { type: string, nullable: true, example: 서울특별시 관악구 }
+        dDay: { type: integer, format: int64, nullable: true, example: 24 }
+        relevanceRate: { type: integer, minimum: 1, maximum: 100, description: 적합도 점수(0점은 응답에서 제외), example: 92 }
+        matchReasons:
+          type: array
+          description: 왜 추천됐는지 사용자에게 그대로 보여줍니다.
+          items: { type: string }
+          example: [거주 지역 일치, 연소득 조건 충족, 만 25세 대상]
+
+    # ── PublicHousing ───────────────────────────────────────
+    NoticeResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 5521 }
+        name: { type: string, example: 2026년 서울 행복주택 예비입주자 모집 }
+        housingType: { $ref: '#/components/schemas/HousingType' }
+        housingTypeName: { type: string, description: 한글 라벨, example: 행복주택 }
+        region: { type: string, nullable: true, example: 서울 }
+        recruitStartDate: { type: string, format: date, example: "2026-09-01" }
+        recruitEndDate: { type: string, format: date, example: "2026-09-19" }
+        status: { $ref: '#/components/schemas/RecruitStatus' }
+        dDay: { type: integer, format: int64, minimum: 0, description: 마감까지 남은 일수. 지났으면 0, example: 16 }
+        applyUrl: { type: string, format: uri, nullable: true }
+
+    ComplexMarkerResponse:
+      type: object
+      description: 화면 10 지도 마커(단지 집계). **금액 단위는 원**(마이홈 API 원본).
+      properties:
+        complexNo: { type: integer, format: int64, example: 20240113 }
+        name: { type: string, example: 서울관악 행복주택 }
+        roadAddress: { type: string, nullable: true, example: 서울특별시 관악구 신림로 123 }
+        institution: { type: string, nullable: true, example: LH }
+        housingType: { $ref: '#/components/schemas/HousingType' }
+        housingTypeName: { type: string, example: 행복주택 }
+        latitude: { type: number, format: double, nullable: true, example: 37.4784 }
+        longitude: { type: number, format: double, nullable: true, example: 126.9516 }
+        householdCount: { type: integer, nullable: true, example: 320 }
+        styleCount: { type: integer, format: int64, description: 평형 종류 수, example: 4 }
+        minDeposit: { type: integer, format: int64, nullable: true, example: 32000000 }
+        maxDeposit: { type: integer, format: int64, nullable: true, example: 58000000 }
+        minMonthlyRent: { type: integer, format: int64, nullable: true, example: 145000 }
+        maxMonthlyRent: { type: integer, format: int64, nullable: true, example: 289000 }
+        minArea: { type: number, format: double, nullable: true, description: 전용면적 m², example: 16.8 }
+        maxArea: { type: number, format: double, nullable: true, example: 36.4 }
+
+    ComplexUnitResponse:
+      type: object
+      description: 단지 상세 — 평형별 임대조건 한 줄. 금액 단위는 원.
+      properties:
+        id: { type: integer, format: int64, example: 88012 }
+        styleName: { type: string, nullable: true, example: 26A }
+        exclusiveArea: { type: number, format: double, nullable: true, description: 전용면적 m², example: 26.44 }
+        deposit: { type: integer, format: int64, nullable: true, example: 43000000 }
+        monthlyRent: { type: integer, format: int64, nullable: true, example: 189000 }
+        householdCount: { type: integer, nullable: true, example: 320 }
+        houseType: { type: string, nullable: true, example: 아파트 }
+
+    # ── Transaction ─────────────────────────────────────────
+    RegionResponse:
+      type: object
+      properties:
+        regionCode: { type: string, description: 법정동코드 5자리, example: "11620" }
+        regionName: { type: string, example: 서울특별시 관악구 }
+        sido: { type: string, example: 서울특별시 }
+        sigungu: { type: string, example: 관악구 }
+        hasData:
+          type: boolean
+          description: 수집된 실거래가 있는지. `false` 인 칩은 눌러도 빈 지도라 화면에서 비활성 처리합니다.
+          example: true
+
+    MapMarkerResponse:
+      type: object
+      description: 아파트 단위 집계. **금액 단위는 만원**.
+      properties:
+        aptName: { type: string, example: 관악드림타운 }
+        latitude: { type: number, format: double, nullable: true, example: 37.4812 }
+        longitude: { type: number, format: double, nullable: true, example: 126.9294 }
+        dealCount: { type: integer, format: int64, example: 37 }
+        avgAmount: { type: integer, format: int64, example: 78500 }
+        minAmount: { type: integer, format: int64, example: 61000 }
+        maxAmount: { type: integer, format: int64, example: 102000 }
+        avgArea: { type: number, format: double, description: 평균 전용면적 m², example: 72.4 }
+        lastDealDate: { type: string, format: date, example: "2026-08-27" }
+
+    TransactionResponse:
+      type: object
+      description: 실거래 한 건. **금액 단위는 만원**.
+      properties:
+        id: { type: integer, format: int64, example: 918273 }
+        aptName: { type: string, example: 관악드림타운 }
+        dealType: { $ref: '#/components/schemas/DealType' }
+        dealAmount: { type: integer, format: int64, description: 매매가 또는 보증금, example: 78000 }
+        monthlyRent: { type: integer, format: int64, nullable: true, description: "`MONTHLY` 일 때만 값이 있습니다", example: null }
+        exclusiveArea: { type: number, format: double, description: 전용면적 m², example: 84.97 }
+        floor: { type: integer, nullable: true, example: 12 }
+        buildYear: { type: integer, nullable: true, example: 2003 }
+        dealDate: { type: string, format: date, example: "2026-08-27" }
+
+    # ── News ────────────────────────────────────────────────
+    NewsResponse:
+      type: object
+      description: 목록·상세 공용. **목록에서는 `content` 가 null** 입니다.
+      properties:
+        newsId: { type: integer, format: int64, example: 88 }
+        title: { type: string, example: "정부, 청년 전세대출 이자지원 확대" }
+        summary: { type: string, nullable: true }
+        content: { type: string, nullable: true, description: 본문. **상세에서만** 채웁니다 }
+        pressName: { type: string, nullable: true, example: 연합뉴스 }
+        sourceUrl: { type: string, format: uri, nullable: true }
+        thumbnailUrl: { type: string, format: uri, nullable: true }
+        publishedAt: { $ref: '#/components/schemas/LocalDateTime' }
+
+    # ── Community ───────────────────────────────────────────
+    PostRequest:
+      type: object
+      required: [title, content, category]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200, example: 관악구 전세대출 후기 남깁니다 }
+        content: { type: string, minLength: 1, example: 지난주에 승인받았습니다. 조건은 아래와 같습니다... }
+        category: { $ref: '#/components/schemas/PostCategory' }
+
+    CommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 1000, example: 저도 같은 은행에서 받았는데 금리가 비슷하네요. }
+
+    PostSummaryResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 1201 }
+        category: { $ref: '#/components/schemas/PostCategory' }
+        title: { type: string, example: 관악구 전세대출 후기 남깁니다 }
+        nickname: { type: string, example: 집구하는청년 }
+        badges:
+          type: array
+          description: 대출 결과를 등록한 회원에게 붙는 은행 뱃지 코드
+          items: { $ref: '#/components/schemas/BankCode' }
+          example: [KB]
+        viewCount: { type: integer, example: 342 }
+        likeCount: { type: integer, example: 18 }
+        commentCount: { type: integer, example: 7 }
+        createdAt: { $ref: '#/components/schemas/LocalDateTime' }
+
+    CommentResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 4410 }
+        nickname: { type: string, example: 이사준비중 }
+        content: { type: string, example: 저도 같은 은행에서 받았는데 금리가 비슷하네요. }
+        createdAt: { $ref: '#/components/schemas/LocalDateTime' }
+        mine: { type: boolean, description: 비로그인 조회 시 항상 false, example: false }
+
+    PostDetailResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 1201 }
+        category: { $ref: '#/components/schemas/PostCategory' }
+        title: { type: string, example: 관악구 전세대출 후기 남깁니다 }
+        content: { type: string }
+        nickname: { type: string, example: 집구하는청년 }
+        badges:
+          type: array
+          items: { $ref: '#/components/schemas/BankCode' }
+          example: [KB]
+        viewCount: { type: integer, example: 343 }
+        likeCount: { type: integer, example: 18 }
+        commentCount: { type: integer, example: 7 }
+        createdAt: { $ref: '#/components/schemas/LocalDateTime' }
+        liked: { type: boolean, description: 비로그인 조회 시 항상 false, example: false }
+        mine: { type: boolean, description: 비로그인 조회 시 항상 false, example: false }
+        comments:
+          type: array
+          items: { $ref: '#/components/schemas/CommentResponse' }
+
+    # ── Loan ────────────────────────────────────────────────
+    LoanRecordRequest:
+      type: object
+      required: [bankName, rejected]
+      properties:
+        bankName:
+          allOf: [{ $ref: '#/components/schemas/BankCode' }]
+          description: "**코드**로 보냅니다(`KB`/`WOORI`/`NH`/`HANA`). 서버가 표시명으로 변환해 저장합니다."
+        actualLimit:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 10000000
+          maximum: 1000000000
+          description: 승인 한도(원). `rejected=false` 면 **필수**, `rejected=true` 면 생략
+          example: 130000000
+        actualRate:
+          type: number
+          format: double
+          nullable: true
+          minimum: 0.1
+          maximum: 20.0
+          description: 금리(%)
+          example: 3.6
+        policyId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 생략하면 가장 최근의 대표 대출 정책이 자동 연결됩니다.
+        rejected: { type: boolean, description: true 면 반려 기록, default: false, example: false }
+
+    MyProfile:
+      type: object
+      description: 화면 상단 「내 정보」. 어떤 조건으로 계산했는지 보여줘야 숫자를 믿을 수 있습니다. 값은 한글 라벨입니다.
+      properties:
+        nickname: { type: string, example: 집구하는청년 }
+        ageRange: { type: string, example: 20대 후반 }
+        job: { type: string, example: 직장인 }
+        salaryRange: { type: string, example: "3,000~4,000만원" }
+        maritalStatus: { type: string, enum: [미혼, 기혼], example: 미혼 }
+
+    BankPrediction:
+      type: object
+      properties:
+        bankName: { type: string, description: 은행 표시명(한글), example: KB국민은행 }
+        theme: { type: string, description: 카드 색 키(프론트가 팔레트로 매핑), enum: [amber, blue, green, violet], example: amber }
+        distribution:
+          type: array
+          description: 구간별 표본 수 = 막대 높이. `buckets` 와 같은 순서의 6칸
+          items: { type: integer, format: int64 }
+          example: [3, 12, 41, 28, 9, 2]
+        highlightIndex: { type: integer, minimum: 1, maximum: 5, description: 가장 가능성 높은 구간(0=반려는 강조하지 않음), example: 3 }
+        expectedLimit: { type: integer, format: int64, description: 내 조건 기준 예상 한도(원), example: 128000000 }
+        expectedRate: { type: number, format: double, description: 예상 금리(%), example: 3.62 }
+        sampleSize: { type: integer, format: int64, example: 95 }
+        note: { type: string, description: 팝업(14b)의 한 줄 설명, example: 나이 · 직업 · 연봉 기준 산출 }
+
+    AnalysisReport:
+      type: object
+      description: |
+        화면 하단 「분석레포트」.
+        `aiGenerated=false` 면 규칙 기반 목업입니다. 화면은 이 값으로 「샘플」 배지를 붙여 오해를 막습니다.
+      properties:
+        headline: { type: string }
+        insights: { type: array, items: { type: string } }
+        recommendedBank: { type: string, example: KB국민은행 }
+        disclaimer: { type: string, description: 화면에 반드시 노출합니다. }
+        aiGenerated: { type: boolean, description: "false = 목업(규칙 기반)", example: false }
+
+    LoanPredictionResponse:
+      type: object
+      properties:
+        profile: { $ref: '#/components/schemas/MyProfile' }
+        buckets:
+          type: array
+          description: 막대그래프 x축 라벨 6칸. 0번은 「반려」
+          items: { type: string }
+          example: [반려, 0.5억 미만, 0.5~1억, 1~1.5억, 1.5~2억, 2억 이상]
+        banks:
+          type: array
+          description: 예상 한도가 큰 순으로 정렬
+          items: { $ref: '#/components/schemas/BankPrediction' }
+        report: { $ref: '#/components/schemas/AnalysisReport' }
+
+    LoanSample:
+      type: object
+      description: 개인을 특정할 수 있는 값(닉네임·아이디)은 담지 않습니다.
+      properties:
+        ageRange: { type: string, nullable: true, example: 20대 후반 }
+        job: { type: string, nullable: true, example: 직장인 }
+        salaryRange: { type: string, nullable: true, example: "3,000~4,000만원" }
+        region: { type: string, nullable: true, example: 서울특별시 관악구 }
+        actualLimit: { type: integer, format: int64, example: 120000000 }
+        actualRate: { type: number, format: double, example: 3.55 }
+        similar: { type: boolean, description: 나와 조건(직업·소득·나이대)이 겹치면 true — 화면에서 강조, example: true }
+
+    LoanSampleMine:
+      type: object
+      properties:
+        inThisBucket: { type: boolean, example: true }
+        expectedLimit: { type: integer, format: int64, example: 128000000 }
+        message: { type: string, example: 회원님의 예상 한도가 이 구간에 속합니다. }
+
+    LoanSampleResponse:
+      type: object
+      properties:
+        bankName: { type: string, example: KB국민은행 }
+        bucketLabel: { type: string, example: 1~1.5억 }
+        rejectedBucket: { type: boolean, description: "`bucket=0` 이면 true — 화면 문구와 표가 달라집니다(\"승인 한도 0원\" 은 거짓말)", example: false }
+        total: { type: integer, format: int64, example: 28 }
+        summary: { type: string, example: 이 구간은 연소득 3~4천만원 직장인이 가장 많습니다 }
+        samples:
+          type: array
+          items: { $ref: '#/components/schemas/LoanSample' }
+        mine: { $ref: '#/components/schemas/LoanSampleMine' }
+
+    MyLoanItem:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 771 }
+        bankName: { type: string, example: KB국민은행 }
+        bankCode:
+          type: string
+          nullable: true
+          enum: [KB, WOORI, NH, HANA, null]
+          description: "`BankCode`. 저장된 한글 은행명이 매핑되지 않으면 null"
+          example: KB
+        rejected: { type: boolean, example: false }
+        actualLimit: { type: integer, format: int64, nullable: true, example: 130000000 }
+        actualRate: { type: number, format: double, nullable: true, example: 3.6 }
+        createdAt: { type: string, example: "2026-08-30T14:02:11" }
+
+    MyLoanResponse:
+      type: object
+      properties:
+        loans:
+          type: array
+          description: 등록한 기록이 없으면 빈 배열
+          items: { $ref: '#/components/schemas/MyLoanItem' }
+
+    # ── AI ──────────────────────────────────────────────────
+    AiApplication:
+      type: object
+      description: 「나에게 어떻게 적용되나」
+      properties:
+        verdict: { type: string, description: 한 줄 결론 }
+        reasons: { type: array, items: { type: string }, description: 근거 }
+        nextSteps: { type: array, items: { type: string }, description: 지금 할 일 }
+        tone:
+          type: string
+          description: 화면 색 결정 (good=초록, check=노랑, caution=빨강)
+          enum: [good, check, caution]
+          example: good
+
+    AiInsightResponse:
+      type: object
+      properties:
+        summary: { type: array, description: 3줄 요약, items: { type: string } }
+        application: { $ref: '#/components/schemas/AiApplication' }
+        aiGenerated:
+          type: boolean
+          description: "false = LLM 이 쓰지 않음(규칙 기반). 화면은 이 값으로 「샘플」 배지를 붙입니다."
+          example: false
+
+    AiStatusResponse:
+      type: object
+      description: "[MOCK 전용] AI 연동 상태"
+      properties:
+        aiConfigured: { type: boolean, description: 목업에서는 항상 false, example: false }
+        engine: { type: string, enum: [rule-based, llm], example: rule-based }
+        model: { type: string, nullable: true, example: null }
+        mock: { type: boolean, description: 이 응답이 목업임을 알리는 플래그. 항상 true, example: true }
+
+    # ── ID 만 돌려주는 생성 응답 ─────────────────────────────
+    PostIdData:
+      type: object
+      properties:
+        postId: { type: integer, format: int64, example: 1201 }
+    CommentIdData:
+      type: object
+      properties:
+        commentId: { type: integer, format: int64, example: 4410 }
+    LoanIdData:
+      type: object
+      properties:
+        loanId: { type: integer, format: int64, example: 771 }
+    LikeToggleData:
+      type: object
+      properties:
+        liked: { type: boolean, description: 토글 **이후** 상태, example: true }
+
+    # ── 페이지 응답 (Page + content 항목 타입) ────────────────
+    PagePolicyResponse:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/PolicyResponse' } }
+    PageNoticeResponse:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/NoticeResponse' } }
+    PageTransactionResponse:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/TransactionResponse' } }
+    PageNewsResponse:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/NewsResponse' } }
+    PagePostSummaryResponse:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/PostSummaryResponse' } }
+
+    # ── 성공 봉투 (ApiResponse + data 타입) ───────────────────
+    # 모든 성공 응답은 ApiResponse 를 $ref 로 상속하고 data 만 갈아끼운다.
+    SignupResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/SignupResponse' } }
+    CheckIdResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/CheckIdResponse' } }
+    TokenResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/TokenResponse' } }
+    UserProfileResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/UserProfileResponse' } }
+    PolicyResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PolicyResponse' } }
+    PagePolicyResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PagePolicyResponse' } }
+    RecommendListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/RecommendResponse' } }
+    PageNoticeResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PageNoticeResponse' } }
+    NoticeListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/NoticeResponse' } }
+    ComplexMarkerListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/ComplexMarkerResponse' } }
+    ComplexUnitListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/ComplexUnitResponse' } }
+    RegionListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/RegionResponse' } }
+    MapMarkerListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/MapMarkerResponse' } }
+    PageTransactionResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PageTransactionResponse' } }
+    PageNewsResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PageNewsResponse' } }
+    NewsResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/NewsResponse' } }
+    PagePostSummaryResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PagePostSummaryResponse' } }
+    PostSummaryListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            data: { type: array, items: { $ref: '#/components/schemas/PostSummaryResponse' } }
+    PostDetailResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PostDetailResponse' } }
+    PostIdEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/PostIdData' } }
+    CommentIdEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/CommentIdData' } }
+    LikeToggleEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/LikeToggleData' } }
+    LoanIdEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/LoanIdData' } }
+    LoanPredictionResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/LoanPredictionResponse' } }
+    LoanSampleResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/LoanSampleResponse' } }
+    MyLoanResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/MyLoanResponse' } }
+    AiInsightResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/AiInsightResponse' } }
+    AiStatusEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/AiStatusResponse' } }
+    AnalysisReportEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/AnalysisReport' } }

@@ -1,0 +1,4 @@
+backend/src/main/java/com/zipsa/mock/MockAiController.java
+backend/src/main/java/com/zipsa/mock/dto/MockAiStatusResponse.java
+docs/ZipSa-AI-Ready.docx
+scripts/build_ai_ready_docx.py

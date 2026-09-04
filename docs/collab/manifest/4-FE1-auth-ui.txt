@@ -1,0 +1,8 @@
+frontend/public/card-community.png
+frontend/public/card-info.png
+frontend/public/card-properties.png
+frontend/public/hero.mp4
+frontend/src/views/HomeView.vue
+frontend/src/views/LoginView.vue
+frontend/src/views/MyPageView.vue
+frontend/src/views/SignupView.vue
