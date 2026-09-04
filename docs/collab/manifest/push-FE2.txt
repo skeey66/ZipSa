@@ -1,0 +1,15 @@
+frontend/src/api/housing.js
+frontend/src/api/news.js
+frontend/src/api/policy.js
+frontend/src/api/transactions.js
+frontend/src/components/RichContent.vue
+frontend/src/composables/useKakaoMap.js
+frontend/src/constants/housing.js
+frontend/src/constants/policy.js
+frontend/src/utils/richText.js
+frontend/src/views/NewsView.vue
+frontend/src/views/PolicyDetailView.vue
+frontend/src/views/PolicyListView.vue
+frontend/src/views/PropertiesView.vue
+frontend/src/views/PublicHousingView.vue
+frontend/src/views/TransactionsView.vue

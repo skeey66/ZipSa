@@ -1,0 +1,469 @@
+// ZipSa (청년 보금자리) — DB Schema
+// Flyway V1~V21 이 적용된 실제 DB 기준. https://dbdiagram.io 에 붙여넣으면 ERD 로 렌더링됩니다.
+// 스키마 변경은 새 마이그레이션과 이 파일을 함께 고칩니다.
+
+Project ZipSa {
+  database_type: 'PostgreSQL'
+  Note: '청년 주거 정책·공공임대·실거래가 통합 플랫폼'
+}
+
+// ── Enums ──
+// 실제 컬럼 타입은 varchar. ERD 에 허용값을 함께 보여주려고 Enum 으로 적었습니다.
+
+Enum user_status {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+Enum user_role {
+  USER
+  ADMIN
+}
+Enum job {
+  STUDENT
+  EMPLOYEE
+  SELF_EMPLOYED
+  JOB_SEEKER
+  ETC
+}
+Enum age_range {
+  AGE_10S
+  AGE_20S_EARLY
+  AGE_20S_LATE
+  AGE_30S_EARLY
+  AGE_30S_LATE
+  AGE_40S_OVER
+}
+Enum marital_status {
+  SINGLE
+  MARRIED
+}
+Enum salary_range {
+  UNDER_2000
+  RANGE_2000_3000
+  RANGE_3000_4000
+  RANGE_4000_5000
+  RANGE_5000_7000
+  OVER_7000
+}
+Enum policy_category {
+  HOUSING
+  LOAN
+  PUBLIC_HOUSING
+  SUPPLY
+}
+Enum post_category {
+  FREE
+  LOAN
+  INFO
+  QUESTION
+}
+Enum content_status {
+  PUBLISHED
+  DELETED
+}
+Enum housing_type {
+  HAPPY_HOUSE
+  NATIONAL_RENTAL
+  PERMANENT_RENTAL
+  PURCHASE_RENTAL
+  JEONSE_RENTAL
+  INTEGRATED_RENTAL
+  PUBLIC_RENTAL
+  LONG_JEONSE
+  PUBLIC_SUPPORT_PRIVATE
+  OTHER
+}
+Enum deal_type {
+  SALE
+  JEONSE
+  MONTHLY
+}
+Enum bank_code {
+  KB
+  WOORI
+  NH
+  HANA
+}
+Enum loan_status {
+  APPROVED
+  REJECTED
+}
+Enum crawl_target {
+  POLICY
+  PUBLIC_HOUSING
+  TRANSACTION
+  NEWS
+}
+Enum crawl_job_status {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+// ── 1. 회원·인증 — 화면 02 로그인 / 03·04 회원가입 / 05 마이페이지 ──
+
+Table users {
+  id             bigserial   [pk]
+  login_id       varchar(50) [not null, unique]
+  password       varchar(255) [not null, note: 'BCrypt 해시']
+  nickname       varchar(30) [not null, unique]
+  age_range      age_range
+  marital_status marital_status
+  job            job
+  salary_range   salary_range
+  region         varchar(30) [note: '거주 시·도. 정책 지역 매칭의 기준']
+  role           user_role   [not null, default: 'USER']
+  status         user_status [not null, default: 'ACTIVE']
+  created_at     timestamp   [not null, default: `now()`]
+  updated_at     timestamp   [not null, default: `now()`]
+  deleted_at     timestamp
+
+  indexes {
+    (role, status) [name: 'idx_users_role_status']
+    region [name: 'idx_users_region']
+  }
+}
+
+Table refresh_tokens {
+  id         bigserial    [pk]
+  user_id    bigint       [not null, ref: > users.id]
+  token      varchar(512) [not null, unique]
+  expires_at timestamp    [not null]
+  created_at timestamp    [not null, default: `now()`]
+
+  indexes {
+    user_id    [name: 'idx_refresh_tokens_user_id']
+    expires_at [name: 'idx_refresh_tokens_expires_at']
+  }
+}
+
+// ── 2. 정책 — 화면 06 정책리스트 / 07 정책상세 ──
+
+Table policies {
+  id                  bigserial    [pk]
+  external_id         varchar(100) [not null, unique, note: '온통청년 plcyNo']
+  title               varchar(255) [not null]
+  content             text
+  category            policy_category [not null]
+  region              varchar(50)
+  issuer              varchar(100)
+  apply_start_date    date
+  apply_end_date      date
+  apply_method        text
+  source_name         varchar(100)
+  source_url          varchar(500) [not null]
+
+  // 원문 그대로 보관하는 조건 (표시용)
+  target_job          varchar(255)
+  target_age_range    varchar(255)
+  target_salary_range varchar(255)
+
+  // 매칭용으로 정규화한 조건
+  target_min_age      int
+  target_max_age      int
+  earn_min_amt        bigint       [note: '만원 단위']
+  earn_max_amt        bigint       [note: '만원 단위']
+  marital_condition   varchar(60)  [note: '제한없음 | 기혼 | 미혼']
+  keyword             varchar(100)
+  zip_codes           text         [note: '대상 법정동코드 전체 목록(쉼표 구분)']
+  sido_codes          varchar(120) [note: '대상 시·도코드(쉼표 구분). 전국이면 ALL']
+
+  crawled_at          timestamp    [not null]
+  crawl_job_id        bigint       [ref: > crawl_jobs.id]
+  created_at          timestamp    [not null, default: `now()`]
+  updated_at          timestamp    [not null, default: `now()`]
+
+  indexes {
+    (category, region)             [name: 'idx_policies_category_region']
+    apply_end_date                 [name: 'idx_policies_apply_end_date']
+    (target_min_age, target_max_age) [name: 'idx_policies_target_age']
+    sido_codes                     [name: 'idx_policies_sido_codes']
+  }
+}
+
+Table policy_bookmarks {
+  id         bigserial [pk]
+  user_id    bigint    [not null, ref: > users.id]
+  policy_id  bigint    [not null, ref: > policies.id]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, policy_id) [unique, name: 'uq_policy_bookmarks']
+    policy_id            [name: 'idx_policy_bookmarks_policy_id']
+  }
+  Note: '회원 ↔ 정책 N:M 연결 테이블'
+}
+
+Table policy_views {
+  id        bigserial [pk]
+  user_id   bigint    [not null, ref: > users.id]
+  policy_id bigint    [not null, ref: > policies.id]
+  viewed_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, viewed_at) [name: 'idx_policy_views_user_viewed']
+    policy_id            [name: 'idx_policy_views_policy']
+  }
+  Note: '행동 기반 추천용 자리. 현재 백엔드는 읽지도 쓰지도 않음'
+}
+
+// ── 3. 공공임대 — 화면 10 공공임대정보확인 ──
+
+Table public_housings {
+  id                 bigserial    [pk]
+  external_id        varchar(100) [not null, unique, note: 'LH 공고 식별자']
+  name               varchar(255) [not null]
+  housing_type       housing_type [not null]
+  region             varchar(50)
+  recruit_start_date date         [not null]
+  recruit_end_date   date         [not null]
+  apply_url          varchar(500)
+  source_url         varchar(500) [not null]
+  crawled_at         timestamp    [not null]
+  crawl_job_id       bigint       [ref: > crawl_jobs.id]
+  created_at         timestamp    [not null, default: `now()`]
+  updated_at         timestamp    [not null, default: `now()`]
+
+  indexes {
+    (region, housing_type)                   [name: 'idx_public_housings_region_type']
+    (recruit_start_date, recruit_end_date)   [name: 'idx_public_housings_recruit']
+  }
+  Note: 'LH 분양임대공고문. 「모집 공고」 탭'
+}
+
+Table housing_complexes {
+  id              bigserial    [pk]
+  complex_no      bigint       [not null, unique, note: '마이홈포털 단지일련번호']
+  name            varchar(255) [not null]
+  institution     varchar(100)
+  region_code     varchar(10)  [not null, ref: > regions.region_code, note: '법정동코드 5자리']
+  road_address    varchar(255)
+  house_type      varchar(30)
+  household_count int
+  parking_count   int
+  completed_date  varchar(8)
+  latitude        decimal(10,7)
+  longitude       decimal(10,7)
+  crawl_job_id    bigint       [ref: > crawl_jobs.id]
+  crawled_at      timestamp    [not null, default: `now()`]
+  created_at      timestamp    [not null, default: `now()`]
+
+  indexes {
+    region_code [name: 'idx_housing_complexes_region']
+  }
+  Note: '단지. 평형과 무관한 사실. 「단지 지도」 탭'
+}
+
+Table housing_complex_units {
+  id             bigserial    [pk]
+  complex_id     bigint       [not null, ref: > housing_complexes.id]
+  external_id    varchar(120) [not null, unique, note: 'MYHOME-{hsmpSn}-{styleNm}']
+  housing_type   housing_type [not null]
+  style_name     varchar(50)  [note: '평형 구분']
+  exclusive_area decimal(8,3)
+  supply_area    decimal(8,3)
+  deposit        bigint       [note: '원 단위']
+  monthly_rent   bigint       [note: '원 단위']
+  created_at     timestamp    [not null, default: `now()`]
+
+  indexes {
+    complex_id   [name: 'idx_complex_units_complex']
+    housing_type [name: 'idx_complex_units_type']
+  }
+  Note: '단지의 평형별 임대조건. 한 단지에 임대유형이 여러 개인 경우가 있어 분리'
+}
+
+// ── 4. 커뮤니티 — 화면 08 커뮤니티게시판 ──
+
+Table posts {
+  id            bigserial    [pk]
+  user_id       bigint       [not null, ref: > users.id]
+  title         varchar(200) [not null]
+  content       text         [not null]
+  category      post_category [not null]
+  view_count    int          [not null, default: 0]
+  like_count    int          [not null, default: 0, note: '역정규화']
+  comment_count int          [not null, default: 0, note: '역정규화']
+  status        content_status [not null, default: 'PUBLISHED']
+  deleted_at    timestamp
+  created_at    timestamp    [not null, default: `now()`]
+  updated_at    timestamp    [not null, default: `now()`]
+
+  indexes {
+    (category, created_at) [name: 'idx_posts_category_created']
+    user_id                [name: 'idx_posts_user_id']
+  }
+}
+
+Table comments {
+  id         bigserial   [pk]
+  post_id    bigint      [not null, ref: > posts.id]
+  user_id    bigint      [not null, ref: > users.id]
+  content    text        [not null]
+  status     content_status [not null, default: 'PUBLISHED']
+  deleted_at timestamp
+  created_at timestamp   [not null, default: `now()`]
+  updated_at timestamp   [not null, default: `now()`]
+
+  indexes {
+    (post_id, created_at) [name: 'idx_comments_post_created']
+    user_id               [name: 'idx_comments_user_id']
+  }
+}
+
+Table post_likes {
+  id         bigserial [pk]
+  post_id    bigint    [not null, ref: > posts.id]
+  user_id    bigint    [not null, ref: > users.id]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (post_id, user_id) [unique, name: 'uq_post_likes']
+    user_id            [name: 'idx_post_likes_user_id']
+  }
+  Note: '회원 ↔ 게시글 N:M 연결 테이블'
+}
+
+// ── 5. 대출 — 화면 14·14b 대출예측 / 대출결과 입력 ──
+
+Table loan_actuals {
+  id           bigserial    [pk]
+  user_id      bigint       [not null, ref: > users.id]
+  policy_id    bigint       [not null, ref: > policies.id]
+  actual_limit bigint       [note: '원 단위. 반려면 NULL']
+  actual_rate  decimal(4,2)
+  bank_name    bank_code
+  status       loan_status  [not null, default: 'APPROVED']
+  created_at   timestamp    [not null, default: `now()`]
+
+  indexes {
+    user_id              [name: 'idx_loan_actuals_user_id']
+    policy_id            [name: 'idx_loan_actuals_policy_id']
+    (bank_name, status)  [name: 'idx_loan_actuals_bank_status']
+  }
+  Note: '회원이 직접 입력한 실제 대출 결과'
+}
+
+// ── 6. 실거래가 — 화면 11 실거래가확인(지도) ──
+
+Table regions {
+  region_code varchar(10)  [pk, note: '법정동코드 5자리']
+  region_name varchar(100) [not null]
+  sido        varchar(30)  [not null]
+  sigungu     varchar(30)
+}
+
+Table apartments {
+  id          bigserial     [pk]
+  region_code varchar(10)   [not null, ref: > regions.region_code]
+  name        varchar(255)  [not null]
+  build_year  int
+  latitude    decimal(10,7)
+  longitude   decimal(10,7)
+  created_at  timestamp     [not null, default: `now()`]
+
+  indexes {
+    (region_code, name) [unique, name: 'uq_apartments']
+    region_code         [name: 'idx_apartments_region']
+    name                [name: 'idx_apartments_name']
+  }
+  Note: '단지. 거래마다 중복되던 좌표·건축년도를 V20 에서 분리'
+}
+
+Table real_estate_transactions {
+  id             bigserial     [pk]
+  apartment_id   bigint        [not null, ref: > apartments.id]
+  deal_amount    bigint        [not null, note: '만원 단위. 매매는 거래금액, 전월세는 보증금']
+  monthly_rent   bigint        [note: '만원 단위. 매매는 NULL, 전세는 0']
+  exclusive_area decimal(6,2)  [not null]
+  floor          int
+  deal_date      date          [not null]
+  deal_type      deal_type     [not null]
+  crawl_job_id   bigint        [ref: > crawl_jobs.id]
+  crawled_at     timestamp     [not null]
+
+  indexes {
+    (apartment_id, deal_date, exclusive_area, floor, deal_type) [unique, name: 'uq_transaction']
+    (apartment_id, deal_date) [name: 'idx_transactions_apartment_date']
+    (deal_type, deal_date)    [name: 'idx_transactions_type_date']
+  }
+}
+
+// ── 7. 뉴스 — 화면 뉴스 목록(/news) ──
+
+Table news {
+  id            bigserial     [pk]
+  external_id   varchar(500)  [not null, unique, note: 'RSS guid 또는 원문 URL']
+  title         varchar(500)  [not null]
+  summary       text
+  content       text          [note: '기사 본문. AI 요약의 입력']
+  press_name    varchar(100)
+  source_url    varchar(1000) [not null]
+  thumbnail_url varchar(1000)
+  published_at  timestamp     [not null]
+  crawl_job_id  bigint        [ref: > crawl_jobs.id]
+  crawled_at    timestamp     [not null, default: `now()`]
+  created_at    timestamp     [not null, default: `now()`]
+
+  indexes {
+    published_at [name: 'idx_news_published']
+  }
+}
+
+// ── 8. 크롤링 운영 ──
+
+Table crawl_jobs {
+  id                bigserial   [pk]
+  target            crawl_target [not null]
+  target_region     varchar(50)
+  status            crawl_job_status [not null, default: 'PENDING']
+  processed_count   int         [not null, default: 0]
+  error_message     text
+  started_at        timestamp
+  finished_at       timestamp
+  created_at        timestamp   [not null, default: `now()`]
+
+  Note: '크롤러 실행 이력'
+}
+
+// ── 테이블 그룹 ──
+
+TableGroup "1. 회원·인증" {
+  users
+  refresh_tokens
+}
+
+TableGroup "2. 정책" {
+  policies
+  policy_bookmarks
+  policy_views
+}
+
+TableGroup "3. 공공임대" {
+  public_housings
+  housing_complexes
+  housing_complex_units
+}
+
+TableGroup "4. 커뮤니티" {
+  posts
+  comments
+  post_likes
+}
+
+TableGroup "5. 대출" {
+  loan_actuals
+}
+
+TableGroup "6. 실거래가" {
+  regions
+  apartments
+  real_estate_transactions
+}
+
+TableGroup "7. 뉴스·크롤링 운영" {
+  news
+  crawl_jobs
+}

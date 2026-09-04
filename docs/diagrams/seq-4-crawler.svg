@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1123" height="794" viewBox="0 0 1123 794" font-family="'Apple SD Gothic Neo','Noto Sans KR',sans-serif">
+<rect width="1123" height="794" fill="#FFFFFF"/>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#4A5568"/></marker>
+<marker id="arrow-open" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0.8 1.2 L8.8 5 L0.8 8.8" fill="none" stroke="#8A97A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="34" y="28" width="3.5" height="31" rx="1.75" fill="#111927"/>
+<text x="47.0" y="34.0" font-size="7.6" fill="#7C899B" font-weight="700">SEQUENCE 5</text>
+<text x="47.0" y="51.0" font-size="16" fill="#111927" font-weight="700">크롤러 배치 — 실거래가 수집</text>
+<text x="47.0" y="69.0" font-size="8.6" fill="#3A4658">실행 한 번이 crawl_jobs 한 행. 지역 · 월 단위로 커밋해 중간에 끊겨도 앞부분은 남는다.</text>
+<text x="1089.0" y="69.0" font-size="7.3" fill="#A3AEBD" text-anchor="end">crawler/zipsa_crawler/{main,db}.py · transaction/{collector,client,geocode,repository}.py</text>
+<line x1="34" y1="767" x2="1089" y2="767" stroke="#E7ECF3" stroke-width="1"/>
+<text x="34.0" y="779.0" font-size="7.4" fill="#A3AEBD">ZIP 보금자리 · ZipSa — 시퀀스 다이어그램</text>
+<text x="1089.0" y="779.0" font-size="7.4" fill="#A3AEBD" text-anchor="end">5 / 5</text>
+<g transform="translate(0 156.1)">
+<rect x="329.4" y="147.7" width="759.6" height="226.9" rx="6" fill="#FBFCFE" stroke="#CBD5E3" stroke-width="0.9"/>
+<path d="M329.4 153.7 a6 6 0 0 1 6 -6 h28.7 v14 h-34.7 z" fill="#E6EBF3"/>
+<text x="336.4" y="158.2" font-size="7.5" fill="#48566B" font-weight="700">loop</text>
+<text x="371.1" y="158.2" font-size="7.6" fill="#7C899B" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">지역 × 최근 N개월 × (매매 · 전월세) — 서울 기준 150회</text>
+<rect x="153.6" y="392.9" width="935.4" height="131.5" rx="6" fill="#FBFCFE" stroke="#CBD5E3" stroke-width="0.9"/>
+<path d="M153.6 398.9 a6 6 0 0 1 6 -6 h22.5 v14 h-28.5 z" fill="#E6EBF3"/>
+<text x="160.6" y="403.4" font-size="7.5" fill="#48566B" font-weight="700">alt</text>
+<text x="189.1" y="403.4" font-size="7.6" fill="#7C899B" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">정상 종료</text>
+<line x1="153.6" y1="460.0" x2="1089.0" y2="460.0" stroke="#CBD5E3" stroke-width="0.9" stroke-dasharray="5 4"/>
+<text x="162.6" y="471.0" font-size="7.6" fill="#7C899B" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">[else] 예외 발생</text>
+<rect x="50.9" y="-48.0" width="142.0" height="34" rx="7" fill="#EDF1F7" stroke="#5B6B80" stroke-width="1.05"/>
+<text x="121.9" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">운영자</text>
+<text x="121.9" y="-22.0" font-size="7.3" fill="#5B6B80" text-anchor="middle">CLI · cron</text>
+<line x1="121.9" y1="-9" x2="121.9" y2="575.8" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="226.8" y="-48.0" width="142.0" height="34" rx="7" fill="#E6EEFC" stroke="#3B6FD4" stroke-width="1.05"/>
+<text x="297.8" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">main.py</text>
+<text x="297.8" y="-22.0" font-size="7.3" fill="#3B6FD4" text-anchor="middle">argparse</text>
+<line x1="297.8" y1="-9" x2="297.8" y2="575.8" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="402.6" y="-48.0" width="142.0" height="34" rx="7" fill="#EDEAFB" stroke="#6455CC" stroke-width="1.05"/>
+<text x="473.6" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">collector.py</text>
+<text x="473.6" y="-22.0" font-size="7.3" fill="#6455CC" text-anchor="middle">collect()</text>
+<line x1="473.6" y1="-9" x2="473.6" y2="575.8" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="578.4" y="-48.0" width="142.0" height="34" rx="7" fill="#E1F1F3" stroke="#28808A" stroke-width="1.05"/>
+<text x="649.4" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">국토부 API</text>
+<text x="649.4" y="-22.0" font-size="7.3" fill="#28808A" text-anchor="middle">data.go.kr</text>
+<line x1="649.4" y1="-9" x2="649.4" y2="575.8" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="754.2" y="-48.0" width="142.0" height="34" rx="7" fill="#FBE9EC" stroke="#C2415C" stroke-width="1.05"/>
+<text x="825.2" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">Geocoder</text>
+<text x="825.2" y="-22.0" font-size="7.3" fill="#C2415C" text-anchor="middle">카카오 로컬</text>
+<line x1="825.2" y1="-9" x2="825.2" y2="575.8" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="930.1" y="-48.0" width="142.0" height="34" rx="7" fill="#FCF1DD" stroke="#B07714" stroke-width="1.05"/>
+<text x="1001.1" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">PostgreSQL</text>
+<text x="1001.1" y="-22.0" font-size="7.3" fill="#B07714" text-anchor="middle">crawl_jobs · transactions</text>
+<line x1="1001.1" y1="-9" x2="1001.1" y2="575.8" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<line x1="124.9" y1="33.8" x2="290.8" y2="33.8" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="209.8" y="28.3" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">--target transaction --months 3</text>
+<line x1="300.8" y1="67.5" x2="994.1" y2="67.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="649.4" y="62.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">start_job() → INSERT crawl_jobs (RUNNING)</text>
+<line x1="300.8" y1="101.3" x2="466.6" y2="101.3" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="385.7" y="95.8" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">collect(conn, settings, job_id, months)</text>
+<line x1="476.6" y1="135.0" x2="994.1" y2="135.0" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="737.3" y="129.5" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">load_regions() → 법정동코드 25개</text>
+<line x1="476.6" y1="203.5" x2="642.4" y2="203.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="561.5" y="198.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">fetch(kind, region_code, ym)</text>
+<line x1="646.4" y1="237.2" x2="480.6" y2="237.2" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="561.5" y="231.7" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">Deal[] — delay_seconds 간격 준수</text>
+<line x1="476.6" y1="271.0" x2="818.2" y2="271.0" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="649.4" y="265.5" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">lookup(아파트명 → 좌표)</text>
+<rect x="740.8" y="278.0" width="168.8" height="15" rx="3.5" fill="#FFFAEC" stroke="#EBDCB0" stroke-width="0.9"/>
+<text x="749.3" y="288.5" font-size="7.6" fill="#8A6D22">이미 아는 좌표는 preload 로 걸러 다시 묻지 않는다</text>
+<line x1="476.6" y1="326.8" x2="994.1" y2="326.8" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="737.3" y="321.3" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">upsert_many() → INSERT … ON CONFLICT DO UPDATE</text>
+<line x1="476.6" y1="360.6" x2="994.1" y2="360.6" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="737.3" y="355.1" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">conn.commit() — 지역 · 월 단위</text>
+<line x1="300.8" y1="448.7" x2="994.1" y2="448.7" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="649.4" y="443.2" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">finish_job() → status='SUCCESS'</text>
+<line x1="300.8" y1="510.3" x2="994.1" y2="510.3" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="649.4" y="504.8" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">rollback → fail_job() → status='FAILED', error_message</text>
+<line x1="294.8" y1="563.8" x2="128.9" y2="563.8" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="209.8" y="558.3" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">exit code 0 / 1</text>
+</g></svg>

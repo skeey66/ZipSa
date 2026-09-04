@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1123" height="794" viewBox="0 0 1123 794" font-family="'Apple SD Gothic Neo','Noto Sans KR',sans-serif">
+<rect width="1123" height="794" fill="#FFFFFF"/>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 1 L9 5 L0 9 z" fill="#4A5568"/></marker>
+<marker id="arrow-open" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0.8 1.2 L8.8 5 L0.8 8.8" fill="none" stroke="#8A97A8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect x="34" y="28" width="3.5" height="31" rx="1.75" fill="#111927"/>
+<text x="47.0" y="34.0" font-size="7.6" fill="#7C899B" font-weight="700">SEQUENCE 1</text>
+<text x="47.0" y="51.0" font-size="16" fill="#111927" font-weight="700">전체 동작 개요</text>
+<text x="47.0" y="69.0" font-size="8.6" fill="#3A4658">수집(배치)과 조회(요청)가 PostgreSQL 을 사이에 두고 분리된다. 크롤러는 백엔드를 거치지 않는다.</text>
+<text x="1089.0" y="69.0" font-size="7.3" fill="#A3AEBD" text-anchor="end">crawler/zipsa_crawler/main.py · backend 전 계층 · frontend/src/api/client.js</text>
+<line x1="34" y1="767" x2="1089" y2="767" stroke="#E7ECF3" stroke-width="1"/>
+<text x="34.0" y="779.0" font-size="7.4" fill="#A3AEBD">ZIP 보금자리 · ZipSa — 시퀀스 다이어그램</text>
+<text x="1089.0" y="779.0" font-size="7.4" fill="#A3AEBD" text-anchor="end">1 / 5</text>
+<g transform="translate(0 160.7)">
+<rect x="287.2" y="367.0" width="397.9" height="109.5" rx="6" fill="#FBFCFE" stroke="#CBD5E3" stroke-width="0.9"/>
+<path d="M287.2 373.0 a6 6 0 0 1 6 -6 h25.4 v14 h-31.4 z" fill="#E6EBF3"/>
+<text x="294.2" y="377.5" font-size="7.5" fill="#48566B" font-weight="700">opt</text>
+<text x="325.6" y="377.5" font-size="7.6" fill="#7C899B" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">AI 요약이 필요한 화면 &amp; OPENAI_API_KEY 존재</text>
+<rect x="39.0" y="-48.0" width="140.7" height="34" rx="7" fill="#EDF1F7" stroke="#5B6B80" stroke-width="1.05"/>
+<text x="109.4" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">사용자</text>
+<text x="109.4" y="-22.0" font-size="7.3" fill="#5B6B80" text-anchor="middle">브라우저</text>
+<line x1="109.4" y1="-9" x2="109.4" y2="566.6" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="189.7" y="-48.0" width="140.7" height="34" rx="7" fill="#E6EEFC" stroke="#3B6FD4" stroke-width="1.05"/>
+<text x="260.1" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">Vue 3 SPA</text>
+<text x="260.1" y="-22.0" font-size="7.3" fill="#3B6FD4" text-anchor="middle">Vite · Pinia</text>
+<line x1="260.1" y1="-9" x2="260.1" y2="566.6" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="340.4" y="-48.0" width="140.7" height="34" rx="7" fill="#E3F2E9" stroke="#2E8B57" stroke-width="1.05"/>
+<text x="410.8" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">Spring Boot</text>
+<text x="410.8" y="-22.0" font-size="7.3" fill="#2E8B57" text-anchor="middle">com.zipsa</text>
+<line x1="410.8" y1="-9" x2="410.8" y2="566.6" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="491.1" y="-48.0" width="140.7" height="34" rx="7" fill="#FBE9EC" stroke="#C2415C" stroke-width="1.05"/>
+<text x="561.5" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">OpenAI</text>
+<text x="561.5" y="-22.0" font-size="7.3" fill="#C2415C" text-anchor="middle">Spring AI</text>
+<line x1="561.5" y1="-9" x2="561.5" y2="566.6" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="641.9" y="-48.0" width="140.7" height="34" rx="7" fill="#FCF1DD" stroke="#B07714" stroke-width="1.05"/>
+<text x="712.2" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">PostgreSQL</text>
+<text x="712.2" y="-22.0" font-size="7.3" fill="#B07714" text-anchor="middle">Flyway V1~V21</text>
+<line x1="712.2" y1="-9" x2="712.2" y2="566.6" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="792.6" y="-48.0" width="140.7" height="34" rx="7" fill="#EDEAFB" stroke="#6455CC" stroke-width="1.05"/>
+<text x="862.9" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">Python 크롤러</text>
+<text x="862.9" y="-22.0" font-size="7.3" fill="#6455CC" text-anchor="middle">zipsa_crawler</text>
+<line x1="862.9" y1="-9" x2="862.9" y2="566.6" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="943.3" y="-48.0" width="140.7" height="34" rx="7" fill="#E1F1F3" stroke="#28808A" stroke-width="1.05"/>
+<text x="1013.6" y="-33.0" font-size="9.2" fill="#111927" text-anchor="middle" font-weight="700">공공 API</text>
+<text x="1013.6" y="-22.0" font-size="7.3" fill="#28808A" text-anchor="middle">국토부 · LH · 카카오</text>
+<line x1="1013.6" y1="-9" x2="1013.6" y2="566.6" stroke="#B9C4D4" stroke-width="1" stroke-dasharray="2.5 4.5" opacity="0.8"/>
+<rect x="34" y="9.0" width="1055" height="17" rx="4" fill="#F2F5FA"/>
+<rect x="34" y="9.0" width="3" height="17" rx="1.5" fill="#B9C4D4"/>
+<text x="45.0" y="21.0" font-size="8.5" fill="#7C899B" font-weight="700">① 수집 — 사용자 요청과 무관하게 미리 돌아간다</text>
+<line x1="865.9" y1="75.5" x2="1006.6" y2="75.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="938.3" y="70.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">정책 · 공고 · 실거래가 요청</text>
+<line x1="1010.6" y1="111.5" x2="869.9" y2="111.5" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="938.3" y="106.0" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">JSON / XML</text>
+<line x1="859.9" y1="147.5" x2="719.2" y2="147.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="787.6" y="142.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">UPSERT + crawl_jobs 기록</text>
+<rect x="791.1" y="155.0" width="143.6" height="15" rx="3.5" fill="#FFFAEC" stroke="#EBDCB0" stroke-width="0.9"/>
+<text x="799.6" y="165.5" font-size="7.6" fill="#8A6D22">백엔드를 거치지 않고 DB 에 직접 적재한다</text>
+<rect x="34" y="179.0" width="1055" height="17" rx="4" fill="#F2F5FA"/>
+<rect x="34" y="179.0" width="3" height="17" rx="1.5" fill="#B9C4D4"/>
+<text x="45.0" y="191.0" font-size="8.5" fill="#7C899B" font-weight="700">② 조회 — 백엔드가 유일한 외부 진입점</text>
+<line x1="112.4" y1="245.5" x2="253.1" y2="245.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="184.7" y="240.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">화면 진입 · 검색</text>
+<line x1="263.1" y1="281.5" x2="403.8" y2="281.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="335.4" y="276.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">GET /api/… (Bearer accessToken)</text>
+<line x1="413.8" y1="317.5" x2="705.2" y2="317.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="561.5" y="312.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">JPA 조회 (페이징 · 필터)</text>
+<line x1="709.2" y1="353.5" x2="417.8" y2="353.5" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="561.5" y="348.0" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">ResultSet</text>
+<line x1="413.8" y1="425.5" x2="554.5" y2="425.5" stroke="#4A5568" stroke-width="1.1" marker-end="url(#arrow)"/>
+<text x="486.1" y="420.0" font-size="8.2" fill="#3A4658" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">ChatClient 프롬프트</text>
+<line x1="558.5" y1="461.5" x2="417.8" y2="461.5" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="486.1" y="456.0" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">요약 · 적용 분석</text>
+<line x1="407.8" y1="518.5" x2="267.1" y2="518.5" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="335.4" y="513.0" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">{ success, data, error }</text>
+<line x1="257.1" y1="554.6" x2="116.4" y2="554.6" stroke="#8A97A8" stroke-width="1.1" stroke-dasharray="4 3.5" marker-end="url(#arrow-open)"/>
+<text x="184.7" y="549.1" font-size="8.2" fill="#7C899B" text-anchor="middle" stroke="#FFFFFF" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke fill">렌더링</text>
+</g></svg>
